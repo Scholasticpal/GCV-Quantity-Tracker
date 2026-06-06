@@ -1,0 +1,40 @@
+
+### Utility Functions Available
+- `getLotLabel(id)` → "Pile-X : Y"
+- `getPileNumber(id)` → 1-6
+- `getSubLabel(id)` → "A"-"E"
+- `initializeLots(count)` → Lot[]
+- `findNextEmptyLotIndex(lots)` → number
+- `addNewLot(lots, gcv, qty)` → Lot[]
+- `addLotToExisting(lots, index, gcv, qty)` → Lot[]
+- `subtractFromLot(lots, index, qty)` → Lot[]
+- `calculateTotalQuantity(lots)` → number
+- `calculateAverageGcv(lots)` → number
+- `calculateTotalEnergy(lots)` → number
+- `getActiveLotsCount(lots)` → number
+- `calculatePileStats(lots)` → PileStats[]
+
+## Limitations
+
+### What You Cannot Do
+- Create backend APIs outside Supabase
+- Add authentication without user specification
+- Modify Shadcn UI base components
+- Use libraries not in the allowed list
+- Create arbitrary Tailwind values
+
+### What Requires User Input
+- Supabase project URL and keys
+- Deployment preferences
+- Authentication requirements
+- Additional feature priorities
+- Data export formats
+
+## Success Metrics
+
+A successful interaction results in:
+1. ✅ Working code that follows project patterns
+2. ✅ No TypeScript errors
+3. ✅ Consistent styling with existing components
+4. ✅ Business logic preserved
+5. ✅ Clear documentation of changes
