@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { SpreadsheetTable } from "./components/SpreadsheetTable";
 import { ControlPanel } from "./components/ControlPanel";
 import { SummaryCards } from "./components/SummaryCards";
@@ -17,16 +17,23 @@ export interface SavedState {
 }
 
 export default function App() {
+  // ─── Auth State ───────────────────────────────────────────
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<string | undefined>(undefined);
   const [loadingAuth, setLoadingAuth] = useState(true);
 
-  const [lots, setLots] = useState<Lot[]>(() => initializeLots(30));
+  // ─── Data State ───────────────────────────────────────────
+  const [lots, setLots] = useState<Lot[]>([]);
   const [selectedLotIndex, setSelectedLotIndex] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<"editor" | "history">("editor");
   const [savedStates, setSavedStates] = useState<SavedState[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
+  // ─── Loading / Syncing ────────────────────────────────────
+  const [loadingData, setLoadingData] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+
+  // ======================== AUTH ========================
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -42,7 +49,10 @@ export default function App() {
         fetchRole(session.user.id);
       } else {
         setRole(undefined);
+        setLots([]);
+        setSavedStates([]);
         setLoadingAuth(false);
+        setLoadingData(true);
       }
     });
 
@@ -56,7 +66,7 @@ export default function App() {
         .select("role")
         .eq("user_id", userId)
         .single();
-      
+
       if (error) throw error;
       if (data) setRole(data.role);
     } catch (error) {
@@ -66,76 +76,283 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    const stored = localStorage.getItem("gcv-saved-states");
-    if (stored) {
-      try {
-        setSavedStates(JSON.parse(stored));
-      } catch (e) {
-        console.error("Failed to parse saved states");
+  // ======================== DATA FETCH ========================
+  const fetchData = useCallback(async () => {
+    setLoadingData(true);
+    try {
+      // ── Lots ──
+      const { data: lotsData, error: lotsError } = await supabase
+        .from("lots")
+        .select("*")
+        .order("id", { ascending: true });
+
+      if (lotsError) throw lotsError;
+
+      if (!lotsData || lotsData.length === 0) {
+        // Seed the 30 default lots
+        const defaults = initializeLots(30);
+        const rows = defaults.map((lot) => ({
+          id: lot.id,
+          gcv: lot.gcv,
+          quantity: lot.quantity,
+          original_gcv: lot.originalGcv,
+          original_quantity: lot.originalQuantity,
+          lots_added: lot.lotsAdded,
+          lots_subtracted: lot.lotsSubtracted,
+        }));
+
+        const { error: insertError } = await supabase.from("lots").insert(rows);
+        if (insertError) throw insertError;
+
+        setLots(defaults);
+      } else {
+        // Map DB snake_case → TS camelCase
+        const mapped: Lot[] = lotsData.map((row: any) => ({
+          id: row.id,
+          gcv: row.gcv,
+          quantity: row.quantity,
+          originalGcv: row.original_gcv,
+          originalQuantity: row.original_quantity,
+          lotsAdded: row.lots_added,
+          lotsSubtracted: row.lots_subtracted,
+        }));
+        setLots(mapped);
       }
+
+      // ── Saved States ──
+      const { data: statesData, error: statesError } = await supabase
+        .from("saved_states")
+        .select("*")
+        .order("state_date", { ascending: true });
+
+      if (statesError) throw statesError;
+
+      if (statesData && statesData.length > 0) {
+        const mapped: SavedState[] = statesData.map((row: any) => ({
+          date: row.state_date,
+          lots: row.lots_data as Lot[],
+        }));
+        setSavedStates(mapped);
+      } else {
+        setSavedStates([]);
+      }
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setLoadingData(false);
     }
   }, []);
 
-  const saveToStorage = (states: SavedState[]) => {
-    localStorage.setItem("gcv-saved-states", JSON.stringify(states));
+  // Fetch data when session becomes available
+  useEffect(() => {
+    if (session && !loadingAuth) {
+      fetchData();
+    }
+  }, [session, loadingAuth, fetchData]);
+
+  // ======================== LOT OPERATIONS ========================
+
+  const syncLotToSupabase = async (lot: Lot) => {
+    const { error } = await supabase
+      .from("lots")
+      .update({
+        gcv: lot.gcv,
+        quantity: lot.quantity,
+        original_gcv: lot.originalGcv,
+        original_quantity: lot.originalQuantity,
+        lots_added: lot.lotsAdded,
+        lots_subtracted: lot.lotsSubtracted,
+      })
+      .eq("id", lot.id);
+
+    if (error) {
+      console.error("Error syncing lot:", error);
+      throw error;
+    }
   };
 
-  const handleAddNewLot = (gcv: number, quantity: number) => {
-    setLots((prevLots) => addNewLot(prevLots, gcv, quantity));
+  const handleAddNewLot = async (gcv: number, quantity: number) => {
+    const newLots = addNewLot(lots, gcv, quantity);
+    if (newLots === lots) return; // no empty slot found
+
+    // Find the changed lot
+    const changedLot = newLots.find(
+      (lot, i) => lot.gcv !== lots[i].gcv || lot.quantity !== lots[i].quantity
+    );
+
+    setLots(newLots);
+    setSyncing(true);
+    try {
+      if (changedLot) await syncLotToSupabase(changedLot);
+    } catch {
+      // Revert on failure
+      setLots(lots);
+    } finally {
+      setSyncing(false);
+    }
   };
 
-  const handleAddToExisting = (lotIndex: number, gcv: number, quantity: number) => {
-    setLots((prevLots) => addLotToExisting(prevLots, lotIndex, gcv, quantity));
+  const handleAddToExisting = async (lotIndex: number, gcv: number, quantity: number) => {
+    const newLots = addLotToExisting(lots, lotIndex, gcv, quantity);
+    if (newLots === lots) return;
+
+    const changedLot = newLots[lotIndex];
+    setLots(newLots);
+    setSyncing(true);
+    try {
+      await syncLotToSupabase(changedLot);
+    } catch {
+      setLots(lots);
+    } finally {
+      setSyncing(false);
+    }
   };
 
-  const handleSubtractFromLot = (lotIndex: number, quantity: number) => {
-    setLots((prevLots) => subtractFromLot(prevLots, lotIndex, quantity));
+  const handleSubtractFromLot = async (lotIndex: number, quantity: number) => {
+    const newLots = subtractFromLot(lots, lotIndex, quantity);
+    if (newLots === lots) return;
+
+    const changedLot = newLots[lotIndex];
+    setLots(newLots);
+    setSyncing(true);
+    try {
+      await syncLotToSupabase(changedLot);
+    } catch {
+      setLots(lots);
+    } finally {
+      setSyncing(false);
+    }
   };
 
-  const handleSaveCurrentState = () => {
+  // ======================== SAVED STATES ========================
+
+  const handleSaveCurrentState = async () => {
     const today = format(new Date(), "yyyy-MM-dd");
-    const existingIndex = savedStates.findIndex((s) => s.date === today);
-    
-    let newStates: SavedState[];
-    if (existingIndex >= 0) {
-      newStates = savedStates.map((s, i) =>
-        i === existingIndex ? { ...s, lots: lots } : s
-      );
-    } else {
-      newStates = [...savedStates, { date: today, lots }];
+
+    setSyncing(true);
+    try {
+      const { error } = await supabase
+        .from("saved_states")
+        .upsert(
+          { state_date: today, lots_data: lots },
+          { onConflict: "state_date" }
+        );
+
+      if (error) throw error;
+
+      // Update local state
+      const existingIndex = savedStates.findIndex((s) => s.date === today);
+      if (existingIndex >= 0) {
+        setSavedStates(
+          savedStates.map((s, i) =>
+            i === existingIndex ? { ...s, lots } : s
+          )
+        );
+      } else {
+        setSavedStates([...savedStates, { date: today, lots }]);
+      }
+    } catch (error) {
+      console.error("Error saving state:", error);
+    } finally {
+      setSyncing(false);
     }
-    
-    setSavedStates(newStates);
-    saveToStorage(newStates);
   };
 
-  const handleLoadState = (date: string) => {
+  const handleLoadState = async (date: string) => {
     const state = savedStates.find((s) => s.date === date);
-    if (state) {
-      setLots(state.lots);
-      setSelectedDate(date);
-      setSelectedLotIndex(null);
-    }
-  };
+    if (!state) return;
 
-  const handleDeleteState = (date: string) => {
-    const newStates = savedStates.filter((s) => s.date !== date);
-    setSavedStates(newStates);
-    saveToStorage(newStates);
-    if (selectedDate === date) {
-      setSelectedDate(null);
-    }
-  };
-
-  const handleClearAll = () => {
-    setLots(initializeLots(30));
+    setSelectedDate(date);
     setSelectedLotIndex(null);
+    setLots(state.lots);
+    setSyncing(true);
+
+    try {
+      // Bulk update all 30 lots to match the historical snapshot
+      const updates = state.lots.map((lot) =>
+        supabase
+          .from("lots")
+          .update({
+            gcv: lot.gcv,
+            quantity: lot.quantity,
+            original_gcv: lot.originalGcv,
+            original_quantity: lot.originalQuantity,
+            lots_added: lot.lotsAdded,
+            lots_subtracted: lot.lotsSubtracted,
+          })
+          .eq("id", lot.id)
+      );
+
+      const results = await Promise.all(updates);
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
+    } catch (error) {
+      console.error("Error restoring lots from snapshot:", error);
+      // Re-fetch to get consistent state
+      await fetchData();
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleDeleteState = async (date: string) => {
+    setSyncing(true);
+    try {
+      const { error } = await supabase
+        .from("saved_states")
+        .delete()
+        .eq("state_date", date);
+
+      if (error) throw error;
+
+      setSavedStates(savedStates.filter((s) => s.date !== date));
+      if (selectedDate === date) {
+        setSelectedDate(null);
+      }
+    } catch (error) {
+      console.error("Error deleting state:", error);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleClearAll = async () => {
+    const cleared = initializeLots(30);
+    setLots(cleared);
+    setSelectedLotIndex(null);
+    setSyncing(true);
+
+    try {
+      const updates = cleared.map((lot) =>
+        supabase
+          .from("lots")
+          .update({
+            gcv: lot.gcv,
+            quantity: lot.quantity,
+            original_gcv: lot.originalGcv,
+            original_quantity: lot.originalQuantity,
+            lots_added: lot.lotsAdded,
+            lots_subtracted: lot.lotsSubtracted,
+          })
+          .eq("id", lot.id)
+      );
+
+      const results = await Promise.all(updates);
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
+    } catch (error) {
+      console.error("Error clearing lots:", error);
+      await fetchData();
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
+
+  // ======================== RENDER ========================
 
   if (loadingAuth) {
     return (
@@ -147,6 +364,15 @@ export default function App() {
 
   if (!session) {
     return <Auth />;
+  }
+
+  if (loadingData) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 gap-3">
+        <div className="w-8 h-8 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+        <div className="text-emerald-700 text-lg font-medium">Loading data...</div>
+      </div>
+    );
   }
 
   return (
@@ -164,12 +390,20 @@ export default function App() {
               )}
             </p>
           </div>
-          <button
-            onClick={handleLogout}
-            className="text-sm bg-emerald-800 hover:bg-emerald-900 px-4 py-2 rounded-lg transition-colors font-medium border border-emerald-600"
-          >
-            Sign Out
-          </button>
+          <div className="flex items-center gap-3">
+            {syncing && (
+              <span className="flex items-center gap-2 text-emerald-200 text-xs font-medium">
+                <span className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse" />
+                Syncing…
+              </span>
+            )}
+            <button
+              onClick={handleLogout}
+              className="text-sm bg-emerald-800 hover:bg-emerald-900 px-4 py-2 rounded-lg transition-colors font-medium border border-emerald-600"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
       </header>
 
@@ -177,21 +411,19 @@ export default function App() {
         <div className="flex border-b border-slate-300 mb-6">
           <button
             onClick={() => setActiveTab("editor")}
-            className={`px-6 py-3 font-medium text-sm transition-colors ${
-              activeTab === "editor"
+            className={`px-6 py-3 font-medium text-sm transition-colors ${activeTab === "editor"
                 ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50"
                 : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-            }`}
+              }`}
           >
             Editor
           </button>
           <button
             onClick={() => setActiveTab("history")}
-            className={`px-6 py-3 font-medium text-sm transition-colors ${
-              activeTab === "history"
+            className={`px-6 py-3 font-medium text-sm transition-colors ${activeTab === "history"
                 ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50"
                 : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-            }`}
+              }`}
           >
             Date History
           </button>
@@ -203,13 +435,15 @@ export default function App() {
               <div className="flex gap-3 mb-4">
                 <button
                   onClick={handleSaveCurrentState}
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium"
+                  disabled={syncing}
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Save Today's Data
+                  {syncing ? "Saving…" : "Save Today's Data"}
                 </button>
                 <button
                   onClick={handleClearAll}
-                  className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors text-sm font-medium"
+                  disabled={syncing}
+                  className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Clear All
                 </button>
@@ -218,7 +452,7 @@ export default function App() {
 
             <SummaryCards lots={lots} />
             <PileSummary lots={lots} />
-            
+
             <ControlPanel
               onAddNewLot={handleAddNewLot}
               onAddToExisting={handleAddToExisting}
