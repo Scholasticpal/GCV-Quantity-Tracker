@@ -12,6 +12,7 @@ interface ControlPanelProps {
   onSubtractFromLot: (lotIndex: number, quantity: number) => void;
   selectedLotIndex: number | null;
   lots: Lot[];
+  role?: string;
 }
 
 const PILE_COLORS: Record<number, { bg: string; text: string; dot: string }> = {
@@ -29,12 +30,15 @@ export function ControlPanel({
   onSubtractFromLot,
   selectedLotIndex,
   lots,
+  role,
 }: ControlPanelProps) {
   const [addGcv, setAddGcv] = useState("");
   const [addQuantity, setAddQuantity] = useState("");
   const [subtractQuantity, setSubtractQuantity] = useState("");
   const [addToExistingGcv, setAddToExistingGcv] = useState("");
   const [addToExistingQuantity, setAddToExistingQuantity] = useState("");
+
+  const isViewer = role === "viewer";
 
   const handleAddNewLot = () => {
     const gcv = parseFloat(addGcv);
@@ -86,6 +90,14 @@ export function ControlPanel({
   const selectedPileNumber = selectedLot ? getPileNumber(selectedLot.id) : 0;
   const pileColors = PILE_COLORS[selectedPileNumber] || PILE_COLORS[1];
 
+  if (isViewer) {
+    return (
+      <div className="mb-6 p-4 bg-blue-50 text-blue-700 rounded-xl border border-blue-200 shadow-sm flex items-center justify-center">
+        <p className="font-medium">You are in Viewer mode. Editing controls are disabled.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
       <div className="bg-white rounded-xl shadow-md p-5 border border-slate-200">
@@ -105,6 +117,7 @@ export function ControlPanel({
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAddGcv(e.target.value)}
               placeholder="e.g., 4500"
               className="mt-1"
+              disabled={isViewer}
             />
           </div>
           <div>
@@ -118,11 +131,13 @@ export function ControlPanel({
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAddQuantity(e.target.value)}
               placeholder="e.g., 1000"
               className="mt-1"
+              disabled={isViewer}
             />
           </div>
           <Button
             onClick={handleAddNewLot}
             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+            disabled={isViewer}
           >
             Add to Next Empty Entry
           </Button>
@@ -161,7 +176,7 @@ export function ControlPanel({
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAddToExistingGcv(e.target.value)}
               placeholder="e.g., 5000"
               className="mt-1"
-              disabled={selectedLotIndex === null}
+              disabled={selectedLotIndex === null || isViewer}
             />
           </div>
           <div>
@@ -175,13 +190,13 @@ export function ControlPanel({
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAddToExistingQuantity(e.target.value)}
               placeholder="e.g., 500"
               className="mt-1"
-              disabled={selectedLotIndex === null}
+              disabled={selectedLotIndex === null || isViewer}
             />
           </div>
           <Button
             onClick={handleAddToExisting}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-            disabled={selectedLotIndex === null}
+            disabled={selectedLotIndex === null || isViewer}
           >
             Merge with Selected
           </Button>
@@ -223,13 +238,13 @@ export function ControlPanel({
               onChange={(e: ChangeEvent<HTMLInputElement>) => setSubtractQuantity(e.target.value)}
               placeholder="e.g., 200"
               className="mt-1"
-              disabled={selectedLotIndex === null}
+              disabled={selectedLotIndex === null || isViewer}
             />
           </div>
           <Button
             onClick={handleSubtract}
             className="w-full bg-red-600 hover:bg-red-700 text-white"
-            disabled={selectedLotIndex === null}
+            disabled={selectedLotIndex === null || isViewer}
           >
             Subtract from Selected
           </Button>

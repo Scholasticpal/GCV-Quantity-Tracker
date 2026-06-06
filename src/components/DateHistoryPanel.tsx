@@ -8,6 +8,7 @@ interface DateHistoryPanelProps {
   selectedDate: string | null;
   onLoadState: (date: string) => void;
   onDeleteState: (date: string) => void;
+  role?: string;
 }
 
 const PILE_COLORS: Record<number, { bg: string; text: string; dot: string }> = {
@@ -24,6 +25,7 @@ export function DateHistoryPanel({
   selectedDate,
   onLoadState,
   onDeleteState,
+  role,
 }: DateHistoryPanelProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [previewDate, setPreviewDate] = useState<string | null>(null);
@@ -141,12 +143,14 @@ export function DateHistoryPanel({
                   }`}
                 >
                   <span className="text-sm font-medium">{state.date}</span>
-                  <button
-                    onClick={() => onDeleteState(state.date)}
-                    className="text-red-500 hover:text-red-700 text-xs"
-                  >
-                    ✕
-                  </button>
+                  {role !== "viewer" && (
+                    <button
+                      onClick={() => onDeleteState(state.date)}
+                      className="text-red-500 hover:text-red-700 text-xs"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
               ))
             )}
