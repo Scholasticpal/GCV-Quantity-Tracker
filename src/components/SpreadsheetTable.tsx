@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Lot } from "../types/lot";
 import { getLotLabel, getPileNumber, getSubLabel } from "../utils/lotUtils";
+import { MousePointerClick, Pencil, Trash2, Check, X } from "lucide-react";
+
+const MAX_VALUE = 1000000;
 
 interface SpreadsheetTableProps {
   lots: Lot[];
@@ -20,70 +23,107 @@ interface EditFormData {
   lotsSubtracted: string;
 }
 
-// Color configurations for each pile with sub-colors for A-E
-const PILE_COLORS: Record<number, {
-  main: string;
-  subColors: Record<string, { bg: string; text: string; dot: string; hover: string }>;
-}> = {
+// ─── TruncatedCell ──────────────────────────────────────────────
+// Displays numbers compactly. If > 5 digits, shows truncated with "…".
+// Click toggles expanded view; hover shows full value via title.
+function TruncatedCell({
+  value,
+  className = "",
+}: {
+  value: number;
+  className?: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const formatted = value.toLocaleString();
+  const raw = String(value);
+  const isTruncated = raw.length > 5;
+
+  if (!isTruncated || expanded) {
+    return (
+      <span
+        className={`cursor-default ${className}`}
+        title={formatted}
+        onClick={() => isTruncated && setExpanded(false)}
+      >
+        {formatted}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`cursor-pointer ${className}`}
+      title={`Full value: ${formatted} — click to expand`}
+      onClick={() => setExpanded(true)}
+    >
+      {raw.slice(0, 5)}…
+    </span>
+  );
+}
+
+// ─── Pile color config (name column + dot only) ─────────────────
+const PILE_COLORS: Record<
+  number,
+  {
+    subColors: Record<
+      string,
+      { bg: string; text: string; dot: string; border: string }
+    >;
+  }
+> = {
   1: {
-    main: "emerald",
     subColors: {
-      A: { bg: "bg-emerald-100", text: "text-emerald-800", dot: "bg-emerald-500", hover: "hover:bg-emerald-200" },
-      B: { bg: "bg-emerald-200", text: "text-emerald-900", dot: "bg-emerald-600", hover: "hover:bg-emerald-300" },
-      C: { bg: "bg-emerald-300", text: "text-emerald-900", dot: "bg-emerald-700", hover: "hover:bg-emerald-400" },
-      D: { bg: "bg-emerald-400", text: "text-emerald-950", dot: "bg-emerald-800", hover: "hover:bg-emerald-500" },
-      E: { bg: "bg-emerald-500", text: "text-white", dot: "bg-emerald-900", hover: "hover:bg-emerald-600" },
-    }
+      A: { bg: "bg-emerald-100", text: "text-emerald-800", dot: "bg-emerald-500", border: "border-l-emerald-400" },
+      B: { bg: "bg-emerald-200", text: "text-emerald-900", dot: "bg-emerald-600", border: "border-l-emerald-500" },
+      C: { bg: "bg-emerald-300", text: "text-emerald-900", dot: "bg-emerald-700", border: "border-l-emerald-600" },
+      D: { bg: "bg-emerald-400", text: "text-emerald-950", dot: "bg-emerald-800", border: "border-l-emerald-700" },
+      E: { bg: "bg-emerald-500", text: "text-white",       dot: "bg-emerald-900", border: "border-l-emerald-800" },
+    },
   },
   2: {
-    main: "blue",
     subColors: {
-      A: { bg: "bg-blue-100", text: "text-blue-800", dot: "bg-blue-500", hover: "hover:bg-blue-200" },
-      B: { bg: "bg-blue-200", text: "text-blue-900", dot: "bg-blue-600", hover: "hover:bg-blue-300" },
-      C: { bg: "bg-blue-300", text: "text-blue-900", dot: "bg-blue-700", hover: "hover:bg-blue-400" },
-      D: { bg: "bg-blue-400", text: "text-blue-950", dot: "bg-blue-800", hover: "hover:bg-blue-500" },
-      E: { bg: "bg-blue-500", text: "text-white", dot: "bg-blue-900", hover: "hover:bg-blue-600" },
-    }
+      A: { bg: "bg-blue-100", text: "text-blue-800", dot: "bg-blue-500", border: "border-l-blue-400" },
+      B: { bg: "bg-blue-200", text: "text-blue-900", dot: "bg-blue-600", border: "border-l-blue-500" },
+      C: { bg: "bg-blue-300", text: "text-blue-900", dot: "bg-blue-700", border: "border-l-blue-600" },
+      D: { bg: "bg-blue-400", text: "text-blue-950", dot: "bg-blue-800", border: "border-l-blue-700" },
+      E: { bg: "bg-blue-500", text: "text-white",    dot: "bg-blue-900", border: "border-l-blue-800" },
+    },
   },
   3: {
-    main: "amber",
     subColors: {
-      A: { bg: "bg-amber-100", text: "text-amber-800", dot: "bg-amber-500", hover: "hover:bg-amber-200" },
-      B: { bg: "bg-amber-200", text: "text-amber-900", dot: "bg-amber-600", hover: "hover:bg-amber-300" },
-      C: { bg: "bg-amber-300", text: "text-amber-900", dot: "bg-amber-700", hover: "hover:bg-amber-400" },
-      D: { bg: "bg-amber-400", text: "text-amber-950", dot: "bg-amber-800", hover: "hover:bg-amber-500" },
-      E: { bg: "bg-amber-500", text: "text-white", dot: "bg-amber-900", hover: "hover:bg-amber-600" },
-    }
+      A: { bg: "bg-amber-100", text: "text-amber-800", dot: "bg-amber-500", border: "border-l-amber-400" },
+      B: { bg: "bg-amber-200", text: "text-amber-900", dot: "bg-amber-600", border: "border-l-amber-500" },
+      C: { bg: "bg-amber-300", text: "text-amber-900", dot: "bg-amber-700", border: "border-l-amber-600" },
+      D: { bg: "bg-amber-400", text: "text-amber-950", dot: "bg-amber-800", border: "border-l-amber-700" },
+      E: { bg: "bg-amber-500", text: "text-white",     dot: "bg-amber-900", border: "border-l-amber-800" },
+    },
   },
   4: {
-    main: "purple",
     subColors: {
-      A: { bg: "bg-purple-100", text: "text-purple-800", dot: "bg-purple-500", hover: "hover:bg-purple-200" },
-      B: { bg: "bg-purple-200", text: "text-purple-900", dot: "bg-purple-600", hover: "hover:bg-purple-300" },
-      C: { bg: "bg-purple-300", text: "text-purple-900", dot: "bg-purple-700", hover: "hover:bg-purple-400" },
-      D: { bg: "bg-purple-400", text: "text-purple-950", dot: "bg-purple-800", hover: "hover:bg-purple-500" },
-      E: { bg: "bg-purple-500", text: "text-white", dot: "bg-purple-900", hover: "hover:bg-purple-600" },
-    }
+      A: { bg: "bg-purple-100", text: "text-purple-800", dot: "bg-purple-500", border: "border-l-purple-400" },
+      B: { bg: "bg-purple-200", text: "text-purple-900", dot: "bg-purple-600", border: "border-l-purple-500" },
+      C: { bg: "bg-purple-300", text: "text-purple-900", dot: "bg-purple-700", border: "border-l-purple-600" },
+      D: { bg: "bg-purple-400", text: "text-purple-950", dot: "bg-purple-800", border: "border-l-purple-700" },
+      E: { bg: "bg-purple-500", text: "text-white",      dot: "bg-purple-900", border: "border-l-purple-800" },
+    },
   },
   5: {
-    main: "rose",
     subColors: {
-      A: { bg: "bg-rose-100", text: "text-rose-800", dot: "bg-rose-500", hover: "hover:bg-rose-200" },
-      B: { bg: "bg-rose-200", text: "text-rose-900", dot: "bg-rose-600", hover: "hover:bg-rose-300" },
-      C: { bg: "bg-rose-300", text: "text-rose-900", dot: "bg-rose-700", hover: "hover:bg-rose-400" },
-      D: { bg: "bg-rose-400", text: "text-rose-950", dot: "bg-rose-800", hover: "hover:bg-rose-500" },
-      E: { bg: "bg-rose-500", text: "text-white", dot: "bg-rose-900", hover: "hover:bg-rose-600" },
-    }
+      A: { bg: "bg-rose-100", text: "text-rose-800", dot: "bg-rose-500", border: "border-l-rose-400" },
+      B: { bg: "bg-rose-200", text: "text-rose-900", dot: "bg-rose-600", border: "border-l-rose-500" },
+      C: { bg: "bg-rose-300", text: "text-rose-900", dot: "bg-rose-700", border: "border-l-rose-600" },
+      D: { bg: "bg-rose-400", text: "text-rose-950", dot: "bg-rose-800", border: "border-l-rose-700" },
+      E: { bg: "bg-rose-500", text: "text-white",    dot: "bg-rose-900", border: "border-l-rose-800" },
+    },
   },
   6: {
-    main: "teal",
     subColors: {
-      A: { bg: "bg-teal-100", text: "text-teal-800", dot: "bg-teal-500", hover: "hover:bg-teal-200" },
-      B: { bg: "bg-teal-200", text: "text-teal-900", dot: "bg-teal-600", hover: "hover:bg-teal-300" },
-      C: { bg: "bg-teal-300", text: "text-teal-900", dot: "bg-teal-700", hover: "hover:bg-teal-400" },
-      D: { bg: "bg-teal-400", text: "text-teal-950", dot: "bg-teal-800", hover: "hover:bg-teal-500" },
-      E: { bg: "bg-teal-500", text: "text-white", dot: "bg-teal-900", hover: "hover:bg-teal-600" },
-    }
+      A: { bg: "bg-teal-100", text: "text-teal-800", dot: "bg-teal-500", border: "border-l-teal-400" },
+      B: { bg: "bg-teal-200", text: "text-teal-900", dot: "bg-teal-600", border: "border-l-teal-500" },
+      C: { bg: "bg-teal-300", text: "text-teal-900", dot: "bg-teal-700", border: "border-l-teal-600" },
+      D: { bg: "bg-teal-400", text: "text-teal-950", dot: "bg-teal-800", border: "border-l-teal-700" },
+      E: { bg: "bg-teal-500", text: "text-white",    dot: "bg-teal-900", border: "border-l-teal-800" },
+    },
   },
 };
 
@@ -131,6 +171,13 @@ export function SpreadsheetTable({
     });
   };
 
+  const clampValue = (val: string): string => {
+    const num = parseFloat(val);
+    if (isNaN(num)) return val;
+    if (num > MAX_VALUE) return String(MAX_VALUE);
+    return val;
+  };
+
   const saveEditing = () => {
     if (editingRowId === null || !onEditLot) return;
 
@@ -147,7 +194,10 @@ export function SpreadsheetTable({
       isNaN(lotsAdded) || isNaN(lotsSubtracted) ||
       gcv < 0 || quantity < 0 ||
       originalGcv < 0 || originalQuantity < 0 ||
-      lotsAdded < 0 || lotsSubtracted < 0
+      lotsAdded < 0 || lotsSubtracted < 0 ||
+      gcv > MAX_VALUE || quantity > MAX_VALUE ||
+      originalGcv > MAX_VALUE || originalQuantity > MAX_VALUE ||
+      lotsAdded > MAX_VALUE || lotsSubtracted > MAX_VALUE
     ) {
       return;
     }
@@ -166,6 +216,11 @@ export function SpreadsheetTable({
 
   const handleResetRow = (id: number) => {
     if (!onResetLot) return;
+    const label = getLotLabel(id);
+    const confirmed = window.confirm(
+      `Are you sure you want to delete all data of ${label}?`
+    );
+    if (!confirmed) return;
     onResetLot(id);
     if (editingRowId === id) {
       cancelEditing();
@@ -173,19 +228,19 @@ export function SpreadsheetTable({
   };
 
   const updateFormField = (field: keyof EditFormData, value: string) => {
-    setEditFormData((prev) => ({ ...prev, [field]: value }));
+    setEditFormData((prev) => ({ ...prev, [field]: clampValue(value) }));
   };
 
   const inputClasses =
-    "w-full px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono";
+    "w-full min-w-16 px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono";
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-slate-200">
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="w-full min-w-max">
           <thead>
             <tr className="bg-slate-800 text-white">
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky left-0 z-10 bg-slate-800 shadow-[2px_0_5px_rgba(0,0,0,0.1)]">
                 Name
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
@@ -211,7 +266,7 @@ export function SpreadsheetTable({
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-200">
+          <tbody>
             {lots.map((lot, index) => {
               const isSelected = selectedLotIndex === index;
               const hasData = lot.quantity > 0;
@@ -221,105 +276,141 @@ export function SpreadsheetTable({
               const pileColors = PILE_COLORS[pileNumber];
               const subColor = pileColors?.subColors[subLabel] || PILE_COLORS[1].subColors.A;
               const isEditing = editingRowId === lot.id;
+              const isOddRow = index % 2 === 1;
+
+              // Data columns use clean white/slate alternating rows
+              const dataRowBg = isSelected
+                ? "bg-amber-50"
+                : isOddRow
+                ? "bg-slate-50"
+                : "bg-white";
+
+              // Name column carries the pile color indicator
+              const nameColBg = isSelected
+                ? "bg-amber-100"
+                : hasData
+                ? subColor.bg
+                : isOddRow
+                ? "bg-slate-50"
+                : "bg-white";
+
+              // Left border color indicator for the row
+              const leftBorder = isSelected
+                ? "border-l-4 border-l-amber-500"
+                : hasData
+                ? `border-l-4 ${subColor.border}`
+                : "border-l-4 border-l-transparent";
+
+              // Pile partition: thicker border on the last sub-label (E) of each pile
+              const isPileLastRow = (index + 1) % 5 === 0;
+              const bottomBorder = isPileLastRow
+                ? "border-b-2 border-b-slate-400"
+                : "border-b border-b-slate-200";
 
               return (
                 <tr
                   key={lot.id}
-                  className={`transition-colors ${
-                    isSelected
-                      ? "bg-amber-100 border-l-4 border-l-amber-500"
-                      : hasData
-                      ? `${subColor.bg} ${subColor.hover}`
-                      : "bg-white hover:bg-slate-50"
-                  }`}
+                  className={`transition-colors ${dataRowBg} ${leftBorder} ${bottomBorder}`}
                 >
-                  {/* Name column — always read-only */}
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-3 h-3 rounded-full ${subColor.dot}`} />
-                      <span className={`font-bold ${subColor.text}`}>
+                  {/* Name column — sticky, colored */}
+                  <td
+                    className={`px-4 py-2.5 sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)] ${nameColBg}`}
+                  >
+                    <div className="flex items-center gap-2 whitespace-nowrap">
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${subColor.dot}`} />
+                      <span className={`font-bold text-sm ${hasData ? subColor.text : "text-slate-400"}`}>
                         {lotLabel}
                       </span>
                     </div>
                   </td>
 
                   {/* GCV */}
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-2.5">
                     {isEditing ? (
                       <input
                         type="number"
+                        min="0"
+                        max={MAX_VALUE}
                         value={editFormData.gcv}
                         onChange={(e) => updateFormField("gcv", e.target.value)}
                         className={inputClasses}
                       />
                     ) : (
-                      <span
+                      <TruncatedCell
+                        value={lot.gcv}
                         className={`font-mono text-sm ${
                           hasData ? "text-slate-800 font-semibold" : "text-slate-400"
                         }`}
-                      >
-                        {lot.gcv.toLocaleString()}
-                      </span>
+                      />
                     )}
                   </td>
 
                   {/* Quantity */}
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-2.5">
                     {isEditing ? (
                       <input
                         type="number"
+                        min="0"
+                        max={MAX_VALUE}
                         value={editFormData.quantity}
                         onChange={(e) => updateFormField("quantity", e.target.value)}
                         className={inputClasses}
                       />
                     ) : (
-                      <span
+                      <TruncatedCell
+                        value={lot.quantity}
                         className={`font-mono text-sm ${
                           hasData ? "text-slate-800 font-semibold" : "text-slate-400"
                         }`}
-                      >
-                        {lot.quantity.toLocaleString()}
-                      </span>
+                      />
                     )}
                   </td>
 
                   {/* Original GCV */}
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-2.5">
                     {isEditing ? (
                       <input
                         type="number"
+                        min="0"
+                        max={MAX_VALUE}
                         value={editFormData.originalGcv}
                         onChange={(e) => updateFormField("originalGcv", e.target.value)}
                         className={inputClasses}
                       />
                     ) : (
-                      <span className="font-mono text-sm text-slate-500">
-                        {lot.originalGcv.toLocaleString()}
-                      </span>
+                      <TruncatedCell
+                        value={lot.originalGcv}
+                        className="font-mono text-sm text-slate-500"
+                      />
                     )}
                   </td>
 
                   {/* Original Quantity */}
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-2.5">
                     {isEditing ? (
                       <input
                         type="number"
+                        min="0"
+                        max={MAX_VALUE}
                         value={editFormData.originalQuantity}
                         onChange={(e) => updateFormField("originalQuantity", e.target.value)}
                         className={inputClasses}
                       />
                     ) : (
-                      <span className="font-mono text-sm text-slate-500">
-                        {lot.originalQuantity.toLocaleString()}
-                      </span>
+                      <TruncatedCell
+                        value={lot.originalQuantity}
+                        className="font-mono text-sm text-slate-500"
+                      />
                     )}
                   </td>
 
                   {/* Lots Added */}
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-2.5 text-center">
                     {isEditing ? (
                       <input
                         type="number"
+                        min="0"
+                        max={MAX_VALUE}
                         value={editFormData.lotsAdded}
                         onChange={(e) => updateFormField("lotsAdded", e.target.value)}
                         className={inputClasses}
@@ -338,10 +429,12 @@ export function SpreadsheetTable({
                   </td>
 
                   {/* Deductions */}
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-2.5 text-center">
                     {isEditing ? (
                       <input
                         type="number"
+                        min="0"
+                        max={MAX_VALUE}
                         value={editFormData.lotsSubtracted}
                         onChange={(e) => updateFormField("lotsSubtracted", e.target.value)}
                         className={inputClasses}
@@ -360,68 +453,57 @@ export function SpreadsheetTable({
                   </td>
 
                   {/* Actions */}
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-4 py-2.5 text-center">
                     {isEditing ? (
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={saveEditing}
-                          className="px-2.5 py-1 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors"
+                          className="p-2 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                          title="Save changes"
                         >
-                          Save
+                          <Check className="w-4 h-4" />
                         </button>
                         <button
                           onClick={cancelEditing}
-                          className="px-2.5 py-1 text-xs font-medium bg-slate-400 hover:bg-slate-500 text-white rounded transition-colors"
+                          className="p-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                          title="Cancel editing"
                         >
-                          Cancel
+                          <X className="w-4 h-4" />
                         </button>
                       </div>
                     ) : (
                       <div className="flex items-center justify-center gap-1">
-                        {/* Select button — always visible */}
+                        {/* Select */}
                         <button
                           onClick={() => onSelectLot(isSelected ? null : index)}
-                          className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
+                          className={`p-2 rounded-lg transition-colors ${
                             isSelected
-                              ? "bg-amber-500 hover:bg-amber-600 text-white"
-                              : "bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-300"
+                              ? "bg-amber-500 text-white hover:bg-amber-600"
+                              : "bg-blue-50 text-blue-600 hover:bg-blue-100"
                           }`}
+                          title={isSelected ? "Deselect row" : "Select row"}
                         >
-                          {isSelected ? "Selected" : "Select"}
+                          <MousePointerClick className="w-4 h-4" />
                         </button>
 
                         {!isViewer && (
                           <>
-                            {/* Edit button */}
+                            {/* Edit */}
                             <button
                               onClick={() => startEditing(lot)}
-                              className="px-2.5 py-1 text-xs font-medium bg-amber-100 hover:bg-amber-200 text-amber-700 border border-amber-300 rounded transition-colors"
+                              className="p-2 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
+                              title="Edit row"
                             >
-                              Edit
+                              <Pencil className="w-4 h-4" />
                             </button>
 
-                            {/* Reset button */}
+                            {/* Reset */}
                             <button
                               onClick={() => handleResetRow(lot.id)}
-                              className="px-2 py-1 text-xs font-medium bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 rounded transition-colors"
-                              title="Reset this lot to zero"
+                              className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                              title="Reset to zero"
                             >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="w-3.5 h-3.5"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <path d="M3 6h18" />
-                                <path d="M8 6V4h8v2" />
-                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                                <line x1="10" y1="11" x2="10" y2="17" />
-                                <line x1="14" y1="11" x2="14" y2="17" />
-                              </svg>
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </>
                         )}

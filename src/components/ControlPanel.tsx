@@ -3,6 +3,8 @@ import { Lot } from "../types/lot";
 import { Plus, Minus } from "lucide-react";
 import { getLotLabel, getPileNumber } from "../utils/lotUtils";
 
+const MAX_VALUE = 1000000;
+
 interface ControlPanelProps {
   onAddNewLot: (gcv: number, quantity: number) => void;
   onAddToExisting: (lotIndex: number, gcv: number, quantity: number) => void;
@@ -41,7 +43,7 @@ export function ControlPanel({
     const gcv = parseFloat(addGcv);
     const quantity = parseFloat(addQuantity);
 
-    if (isNaN(gcv) || isNaN(quantity) || gcv < 0 || quantity < 0) {
+    if (isNaN(gcv) || isNaN(quantity) || gcv < 0 || quantity < 0 || gcv > MAX_VALUE || quantity > MAX_VALUE) {
       return;
     }
 
@@ -58,7 +60,7 @@ export function ControlPanel({
     const gcv = parseFloat(addToExistingGcv);
     const quantity = parseFloat(addToExistingQuantity);
 
-    if (isNaN(gcv) || isNaN(quantity) || gcv < 0 || quantity < 0) {
+    if (isNaN(gcv) || isNaN(quantity) || gcv < 0 || quantity < 0 || gcv > MAX_VALUE || quantity > MAX_VALUE) {
       return;
     }
 
@@ -74,7 +76,7 @@ export function ControlPanel({
 
     const quantity = parseFloat(subtractQuantity);
 
-    if (isNaN(quantity) || quantity < 0) {
+    if (isNaN(quantity) || quantity < 0 || quantity > MAX_VALUE) {
       return;
     }
 
@@ -110,6 +112,8 @@ export function ControlPanel({
             <input
               id="newGcv"
               type="number"
+              min="0"
+              max={MAX_VALUE}
               value={addGcv}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAddGcv(e.target.value)}
               placeholder="e.g., 4500"
@@ -124,6 +128,8 @@ export function ControlPanel({
             <input
               id="newQuantity"
               type="number"
+              min="0"
+              max={MAX_VALUE}
               value={addQuantity}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAddQuantity(e.target.value)}
               placeholder="e.g., 1000"
@@ -169,6 +175,8 @@ export function ControlPanel({
             <input
               id="existingGcv"
               type="number"
+              min="0"
+              max={MAX_VALUE}
               value={addToExistingGcv}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAddToExistingGcv(e.target.value)}
               placeholder="e.g., 5000"
@@ -183,6 +191,8 @@ export function ControlPanel({
             <input
               id="existingQuantity"
               type="number"
+              min="0"
+              max={MAX_VALUE}
               value={addToExistingQuantity}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAddToExistingQuantity(e.target.value)}
               placeholder="e.g., 500"
@@ -231,6 +241,8 @@ export function ControlPanel({
             <input
               id="subtractQty"
               type="number"
+              min="0"
+              max={MAX_VALUE}
               value={subtractQuantity}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setSubtractQuantity(e.target.value)}
               placeholder="e.g., 200"
