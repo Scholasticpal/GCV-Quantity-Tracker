@@ -1,7 +1,4 @@
 import { useState, ChangeEvent } from "react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
 import { Lot } from "../types/lot";
 import { Plus, Minus } from "lucide-react";
 import { getLotLabel, getPileNumber } from "../utils/lotUtils";
@@ -44,7 +41,7 @@ export function ControlPanel({
     const gcv = parseFloat(addGcv);
     const quantity = parseFloat(addQuantity);
 
-    if (isNaN(gcv) || isNaN(quantity) || gcv <= 0 || quantity <= 0) {
+    if (isNaN(gcv) || isNaN(quantity) || gcv < 0 || quantity < 0) {
       return;
     }
 
@@ -61,7 +58,7 @@ export function ControlPanel({
     const gcv = parseFloat(addToExistingGcv);
     const quantity = parseFloat(addToExistingQuantity);
 
-    if (isNaN(gcv) || isNaN(quantity) || gcv <= 0 || quantity <= 0) {
+    if (isNaN(gcv) || isNaN(quantity) || gcv < 0 || quantity < 0) {
       return;
     }
 
@@ -77,7 +74,7 @@ export function ControlPanel({
 
     const quantity = parseFloat(subtractQuantity);
 
-    if (isNaN(quantity) || quantity <= 0) {
+    if (isNaN(quantity) || quantity < 0) {
       return;
     }
 
@@ -107,40 +104,40 @@ export function ControlPanel({
         </h3>
         <div className="space-y-3">
           <div>
-            <Label htmlFor="newGcv" className="text-sm text-slate-600">
+            <label htmlFor="newGcv" className="text-sm text-slate-600">
               GCV (kcal/kg)
-            </Label>
-            <Input
+            </label>
+            <input
               id="newGcv"
               type="number"
               value={addGcv}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAddGcv(e.target.value)}
               placeholder="e.g., 4500"
-              className="mt-1"
+              className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               disabled={isViewer}
             />
           </div>
           <div>
-            <Label htmlFor="newQuantity" className="text-sm text-slate-600">
+            <label htmlFor="newQuantity" className="text-sm text-slate-600">
               Quantity (MT)
-            </Label>
-            <Input
+            </label>
+            <input
               id="newQuantity"
               type="number"
               value={addQuantity}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAddQuantity(e.target.value)}
               placeholder="e.g., 1000"
-              className="mt-1"
+              className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               disabled={isViewer}
             />
           </div>
-          <Button
+          <button
             onClick={handleAddNewLot}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isViewer}
           >
             Add to Next Empty Entry
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -166,40 +163,40 @@ export function ControlPanel({
         )}
         <div className="space-y-3">
           <div>
-            <Label htmlFor="existingGcv" className="text-sm text-slate-600">
+            <label htmlFor="existingGcv" className="text-sm text-slate-600">
               New Lot GCV (kcal/kg)
-            </Label>
-            <Input
+            </label>
+            <input
               id="existingGcv"
               type="number"
               value={addToExistingGcv}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAddToExistingGcv(e.target.value)}
               placeholder="e.g., 5000"
-              className="mt-1"
+              className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               disabled={selectedLotIndex === null || isViewer}
             />
           </div>
           <div>
-            <Label htmlFor="existingQuantity" className="text-sm text-slate-600">
+            <label htmlFor="existingQuantity" className="text-sm text-slate-600">
               New Lot Quantity (MT)
-            </Label>
-            <Input
+            </label>
+            <input
               id="existingQuantity"
               type="number"
               value={addToExistingQuantity}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAddToExistingQuantity(e.target.value)}
               placeholder="e.g., 500"
-              className="mt-1"
+              className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               disabled={selectedLotIndex === null || isViewer}
             />
           </div>
-          <Button
+          <button
             onClick={handleAddToExisting}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={selectedLotIndex === null || isViewer}
           >
             Merge with Selected
-          </Button>
+          </button>
           <p className="text-xs text-slate-500 italic">
             GCV will be calculated using weighted average
           </p>
@@ -228,26 +225,26 @@ export function ControlPanel({
         )}
         <div className="space-y-3">
           <div>
-            <Label htmlFor="subtractQty" className="text-sm text-slate-600">
+            <label htmlFor="subtractQty" className="text-sm text-slate-600">
               Quantity to Subtract (MT)
-            </Label>
-            <Input
+            </label>
+            <input
               id="subtractQty"
               type="number"
               value={subtractQuantity}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setSubtractQuantity(e.target.value)}
               placeholder="e.g., 200"
-              className="mt-1"
+              className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
               disabled={selectedLotIndex === null || isViewer}
             />
           </div>
-          <Button
+          <button
             onClick={handleSubtract}
-            className="w-full bg-red-600 hover:bg-red-700 text-white"
+            className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={selectedLotIndex === null || isViewer}
           >
             Subtract from Selected
-          </Button>
+          </button>
           <p className="text-xs text-slate-500 italic">
             GCV remains unchanged; only quantity decreases
           </p>

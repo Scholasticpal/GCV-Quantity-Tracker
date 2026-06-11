@@ -224,6 +224,54 @@ export default function App() {
     }
   };
 
+  // ======================== INLINE EDIT & RESET ========================
+
+  const handleEditLot = async (id: number, updatedValues: Partial<Lot>) => {
+    const prevLots = lots;
+    const newLots = lots.map((lot) =>
+      lot.id === id ? { ...lot, ...updatedValues } : lot
+    );
+    const changedLot = newLots.find((lot) => lot.id === id);
+    if (!changedLot) return;
+
+    setLots(newLots);
+    setSyncing(true);
+    try {
+      await syncLotToSupabase(changedLot);
+    } catch {
+      setLots(prevLots);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleResetLot = async (id: number) => {
+    const prevLots = lots;
+    const resetValues: Partial<Lot> = {
+      gcv: 0,
+      quantity: 0,
+      originalGcv: 0,
+      originalQuantity: 0,
+      lotsAdded: 0,
+      lotsSubtracted: 0,
+    };
+    const newLots = lots.map((lot) =>
+      lot.id === id ? { ...lot, ...resetValues } : lot
+    );
+    const changedLot = newLots.find((lot) => lot.id === id);
+    if (!changedLot) return;
+
+    setLots(newLots);
+    setSyncing(true);
+    try {
+      await syncLotToSupabase(changedLot);
+    } catch {
+      setLots(prevLots);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   // ======================== SAVED STATES ========================
 
   const handleSaveCurrentState = async () => {
@@ -466,6 +514,9 @@ export default function App() {
               lots={lots}
               selectedLotIndex={selectedLotIndex}
               onSelectLot={setSelectedLotIndex}
+              onEditLot={handleEditLot}
+              onResetLot={handleResetLot}
+              role={role}
             />
           </>
         )}

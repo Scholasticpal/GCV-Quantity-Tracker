@@ -1,11 +1,23 @@
+import { useState } from "react";
 import { Lot } from "../types/lot";
-import { Button } from "./ui/button";
 import { getLotLabel, getPileNumber, getSubLabel } from "../utils/lotUtils";
 
 interface SpreadsheetTableProps {
   lots: Lot[];
   selectedLotIndex: number | null;
   onSelectLot: (index: number | null) => void;
+  onEditLot?: (id: number, updatedValues: Partial<Lot>) => void;
+  onResetLot?: (id: number) => void;
+  role?: string;
+}
+
+interface EditFormData {
+  gcv: string;
+  quantity: string;
+  originalGcv: string;
+  originalQuantity: string;
+  lotsAdded: string;
+  lotsSubtracted: string;
 }
 
 // Color configurations for each pile with sub-colors for A-E
@@ -79,7 +91,94 @@ export function SpreadsheetTable({
   lots,
   selectedLotIndex,
   onSelectLot,
+  onEditLot,
+  onResetLot,
+  role,
 }: SpreadsheetTableProps) {
+  const [editingRowId, setEditingRowId] = useState<number | null>(null);
+  const [editFormData, setEditFormData] = useState<EditFormData>({
+    gcv: "",
+    quantity: "",
+    originalGcv: "",
+    originalQuantity: "",
+    lotsAdded: "",
+    lotsSubtracted: "",
+  });
+
+  const isViewer = role === "viewer";
+
+  const startEditing = (lot: Lot) => {
+    setEditingRowId(lot.id);
+    setEditFormData({
+      gcv: String(lot.gcv),
+      quantity: String(lot.quantity),
+      originalGcv: String(lot.originalGcv),
+      originalQuantity: String(lot.originalQuantity),
+      lotsAdded: String(lot.lotsAdded),
+      lotsSubtracted: String(lot.lotsSubtracted),
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingRowId(null);
+    setEditFormData({
+      gcv: "",
+      quantity: "",
+      originalGcv: "",
+      originalQuantity: "",
+      lotsAdded: "",
+      lotsSubtracted: "",
+    });
+  };
+
+  const saveEditing = () => {
+    if (editingRowId === null || !onEditLot) return;
+
+    const gcv = parseFloat(editFormData.gcv);
+    const quantity = parseFloat(editFormData.quantity);
+    const originalGcv = parseFloat(editFormData.originalGcv);
+    const originalQuantity = parseFloat(editFormData.originalQuantity);
+    const lotsAdded = parseInt(editFormData.lotsAdded, 10);
+    const lotsSubtracted = parseInt(editFormData.lotsSubtracted, 10);
+
+    if (
+      isNaN(gcv) || isNaN(quantity) ||
+      isNaN(originalGcv) || isNaN(originalQuantity) ||
+      isNaN(lotsAdded) || isNaN(lotsSubtracted) ||
+      gcv < 0 || quantity < 0 ||
+      originalGcv < 0 || originalQuantity < 0 ||
+      lotsAdded < 0 || lotsSubtracted < 0
+    ) {
+      return;
+    }
+
+    onEditLot(editingRowId, {
+      gcv,
+      quantity,
+      originalGcv,
+      originalQuantity,
+      lotsAdded,
+      lotsSubtracted,
+    });
+
+    cancelEditing();
+  };
+
+  const handleResetRow = (id: number) => {
+    if (!onResetLot) return;
+    onResetLot(id);
+    if (editingRowId === id) {
+      cancelEditing();
+    }
+  };
+
+  const updateFormField = (field: keyof EditFormData, value: string) => {
+    setEditFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const inputClasses =
+    "w-full px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono";
+
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-slate-200">
       <div className="overflow-x-auto">
@@ -121,6 +220,7 @@ export function SpreadsheetTable({
               const lotLabel = getLotLabel(lot.id);
               const pileColors = PILE_COLORS[pileNumber];
               const subColor = pileColors?.subColors[subLabel] || PILE_COLORS[1].subColors.A;
+              const isEditing = editingRowId === lot.id;
 
               return (
                 <tr
@@ -133,6 +233,7 @@ export function SpreadsheetTable({
                       : "bg-white hover:bg-slate-50"
                   }`}
                 >
+                  {/* Name column — always read-only */}
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <span className={`w-3 h-3 rounded-full ${subColor.dot}`} />
@@ -141,70 +242,190 @@ export function SpreadsheetTable({
                       </span>
                     </div>
                   </td>
+
+                  {/* GCV */}
                   <td className="px-4 py-3">
-                    <span
-                      className={`font-mono text-sm ${
-                        hasData ? "text-slate-800 font-semibold" : "text-slate-400"
-                      }`}
-                    >
-                      {lot.gcv.toLocaleString()}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`font-mono text-sm ${
-                        hasData ? "text-slate-800 font-semibold" : "text-slate-400"
-                      }`}
-                    >
-                      {lot.quantity.toLocaleString()}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="font-mono text-sm text-slate-500">
-                      {lot.originalGcv.toLocaleString()}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className="font-mono text-sm text-slate-500">
-                      {lot.originalQuantity.toLocaleString()}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        lot.lotsAdded > 0
-                          ? "bg-emerald-100 text-emerald-800"
-                          : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
-                      {lot.lotsAdded}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        lot.lotsSubtracted > 0
-                          ? "bg-red-100 text-red-800"
-                          : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
-                      {lot.lotsSubtracted}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    {hasData && (
-                      <Button
-                        size="sm"
-                        variant={isSelected ? "default" : "outline"}
-                        onClick={() => onSelectLot(isSelected ? null : index)}
-                        className={`text-xs ${
-                          isSelected
-                            ? "bg-amber-500 hover:bg-amber-600 text-white"
-                            : "border-slate-300 text-slate-600 hover:bg-slate-100"
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={editFormData.gcv}
+                        onChange={(e) => updateFormField("gcv", e.target.value)}
+                        className={inputClasses}
+                      />
+                    ) : (
+                      <span
+                        className={`font-mono text-sm ${
+                          hasData ? "text-slate-800 font-semibold" : "text-slate-400"
                         }`}
                       >
-                        {isSelected ? "Selected" : "Select"}
-                      </Button>
+                        {lot.gcv.toLocaleString()}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Quantity */}
+                  <td className="px-4 py-3">
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={editFormData.quantity}
+                        onChange={(e) => updateFormField("quantity", e.target.value)}
+                        className={inputClasses}
+                      />
+                    ) : (
+                      <span
+                        className={`font-mono text-sm ${
+                          hasData ? "text-slate-800 font-semibold" : "text-slate-400"
+                        }`}
+                      >
+                        {lot.quantity.toLocaleString()}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Original GCV */}
+                  <td className="px-4 py-3">
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={editFormData.originalGcv}
+                        onChange={(e) => updateFormField("originalGcv", e.target.value)}
+                        className={inputClasses}
+                      />
+                    ) : (
+                      <span className="font-mono text-sm text-slate-500">
+                        {lot.originalGcv.toLocaleString()}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Original Quantity */}
+                  <td className="px-4 py-3">
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={editFormData.originalQuantity}
+                        onChange={(e) => updateFormField("originalQuantity", e.target.value)}
+                        className={inputClasses}
+                      />
+                    ) : (
+                      <span className="font-mono text-sm text-slate-500">
+                        {lot.originalQuantity.toLocaleString()}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Lots Added */}
+                  <td className="px-4 py-3 text-center">
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={editFormData.lotsAdded}
+                        onChange={(e) => updateFormField("lotsAdded", e.target.value)}
+                        className={inputClasses}
+                      />
+                    ) : (
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          lot.lotsAdded > 0
+                            ? "bg-emerald-100 text-emerald-800"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {lot.lotsAdded}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Deductions */}
+                  <td className="px-4 py-3 text-center">
+                    {isEditing ? (
+                      <input
+                        type="number"
+                        value={editFormData.lotsSubtracted}
+                        onChange={(e) => updateFormField("lotsSubtracted", e.target.value)}
+                        className={inputClasses}
+                      />
+                    ) : (
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          lot.lotsSubtracted > 0
+                            ? "bg-red-100 text-red-800"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {lot.lotsSubtracted}
+                      </span>
+                    )}
+                  </td>
+
+                  {/* Actions */}
+                  <td className="px-4 py-3 text-center">
+                    {isEditing ? (
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={saveEditing}
+                          className="px-2.5 py-1 text-xs font-medium bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={cancelEditing}
+                          className="px-2.5 py-1 text-xs font-medium bg-slate-400 hover:bg-slate-500 text-white rounded transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-1">
+                        {/* Select button — always visible */}
+                        <button
+                          onClick={() => onSelectLot(isSelected ? null : index)}
+                          className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
+                            isSelected
+                              ? "bg-amber-500 hover:bg-amber-600 text-white"
+                              : "bg-blue-100 hover:bg-blue-200 text-blue-700 border border-blue-300"
+                          }`}
+                        >
+                          {isSelected ? "Selected" : "Select"}
+                        </button>
+
+                        {!isViewer && (
+                          <>
+                            {/* Edit button */}
+                            <button
+                              onClick={() => startEditing(lot)}
+                              className="px-2.5 py-1 text-xs font-medium bg-amber-100 hover:bg-amber-200 text-amber-700 border border-amber-300 rounded transition-colors"
+                            >
+                              Edit
+                            </button>
+
+                            {/* Reset button */}
+                            <button
+                              onClick={() => handleResetRow(lot.id)}
+                              className="px-2 py-1 text-xs font-medium bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 rounded transition-colors"
+                              title="Reset this lot to zero"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="w-3.5 h-3.5"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M3 6h18" />
+                                <path d="M8 6V4h8v2" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                                <line x1="10" y1="11" x2="10" y2="17" />
+                                <line x1="14" y1="11" x2="14" y2="17" />
+                              </svg>
+                            </button>
+                          </>
+                        )}
+                      </div>
                     )}
                   </td>
                 </tr>
