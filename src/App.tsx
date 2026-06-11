@@ -6,7 +6,7 @@ import { PileSummary } from "./components/PileSummary";
 import { DateHistoryPanel } from "./components/DateHistoryPanel";
 import { Auth } from "./components/Auth";
 import { Lot } from "./types/lot";
-import { initializeLots, addNewLot, addLotToExisting, subtractFromLot } from "./utils/lotUtils";
+import { initializeLots, addLotToExisting, subtractFromLot } from "./utils/lotUtils";
 import { format } from "date-fns";
 import { supabase } from "./lib/supabase";
 import { Session } from "@supabase/supabase-js";
@@ -171,22 +171,41 @@ export default function App() {
     }
   };
 
-  const handleAddNewLot = async (gcv: number, quantity: number) => {
-    const newLots = addNewLot(lots, gcv, quantity);
-    if (newLots === lots) return; // no empty slot found
+  const handleAddNewLot = async (index: number, gcv: number, quantity: number) => {
+    if (index < 0 || index >= lots.length) return;
 
-    // Find the changed lot
-    const changedLot = newLots.find(
-      (lot, i) => lot.gcv !== lots[i].gcv || lot.quantity !== lots[i].quantity
-    );
+    const targetLot = lots[index];
+    let newLots: Lot[];
 
+    if (targetLot.quantity === 0) {
+      // Empty slot: direct insert/set
+      newLots = lots.map((lot, i) => {
+        if (i === index) {
+          return {
+            ...lot,
+            gcv,
+            quantity,
+            originalGcv: gcv,
+            originalQuantity: quantity,
+            lotsAdded: 1,
+          };
+        }
+        return lot;
+      });
+    } else {
+      // Slot has data: weighted average merge (same as addLotToExisting)
+      newLots = addLotToExisting(lots, index, gcv, quantity);
+      if (newLots === lots) return;
+    }
+
+    const changedLot = newLots[index];
+    const prevLots = lots;
     setLots(newLots);
     setSyncing(true);
     try {
-      if (changedLot) await syncLotToSupabase(changedLot);
+      await syncLotToSupabase(changedLot);
     } catch {
-      // Revert on failure
-      setLots(lots);
+      setLots(prevLots);
     } finally {
       setSyncing(false);
     }

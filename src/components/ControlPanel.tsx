@@ -4,9 +4,10 @@ import { Plus, Minus } from "lucide-react";
 import { getLotLabel, getPileNumber } from "../utils/lotUtils";
 
 const MAX_VALUE = 1000000;
+const SUB_LABELS = ["A", "B", "C", "D", "E"];
 
 interface ControlPanelProps {
-  onAddNewLot: (gcv: number, quantity: number) => void;
+  onAddNewLot: (index: number, gcv: number, quantity: number) => void;
   onAddToExisting: (lotIndex: number, gcv: number, quantity: number) => void;
   onSubtractFromLot: (lotIndex: number, quantity: number) => void;
   selectedLotIndex: number | null;
@@ -33,6 +34,8 @@ export function ControlPanel({
 }: ControlPanelProps) {
   const [addGcv, setAddGcv] = useState("");
   const [addQuantity, setAddQuantity] = useState("");
+  const [selectedTargetPile, setSelectedTargetPile] = useState(1);
+  const [selectedTargetSub, setSelectedTargetSub] = useState("A");
   const [subtractQuantity, setSubtractQuantity] = useState("");
   const [addToExistingGcv, setAddToExistingGcv] = useState("");
   const [addToExistingQuantity, setAddToExistingQuantity] = useState("");
@@ -47,7 +50,8 @@ export function ControlPanel({
       return;
     }
 
-    onAddNewLot(gcv, quantity);
+    const targetIndex = (selectedTargetPile - 1) * 5 + SUB_LABELS.indexOf(selectedTargetSub);
+    onAddNewLot(targetIndex, gcv, quantity);
     setAddGcv("");
     setAddQuantity("");
   };
@@ -89,6 +93,12 @@ export function ControlPanel({
   const selectedPileNumber = selectedLot ? getPileNumber(selectedLot.id) : 0;
   const pileColors = PILE_COLORS[selectedPileNumber] || PILE_COLORS[1];
 
+  // Preview of the target lot for "Add New Lot"
+  const targetIndex = (selectedTargetPile - 1) * 5 + SUB_LABELS.indexOf(selectedTargetSub);
+  const targetLot = lots[targetIndex] || null;
+  const targetLabel = targetLot ? getLotLabel(targetLot.id) : `Pile-${selectedTargetPile} : ${selectedTargetSub}`;
+  const targetPileColors = PILE_COLORS[selectedTargetPile] || PILE_COLORS[1];
+
   if (isViewer) {
     return (
       <div className="mb-6 p-4 bg-blue-50 text-blue-700 rounded-xl border border-blue-200 shadow-sm flex items-center justify-center">
@@ -96,6 +106,9 @@ export function ControlPanel({
       </div>
     );
   }
+
+  const selectClasses =
+    "w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500";
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
@@ -105,6 +118,67 @@ export function ControlPanel({
           Add New Lot
         </h3>
         <div className="space-y-3">
+          {/* Pile & Sub-lot dropdowns */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="targetPile" className="text-sm text-slate-600">
+                Pile
+              </label>
+              <select
+                id="targetPile"
+                value={selectedTargetPile}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                  setSelectedTargetPile(Number(e.target.value))
+                }
+                className={`mt-1 ${selectClasses}`}
+                disabled={isViewer}
+              >
+                {[1, 2, 3, 4, 5, 6].map((p) => (
+                  <option key={p} value={p}>
+                    Pile {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="targetSub" className="text-sm text-slate-600">
+                Sub-lot
+              </label>
+              <select
+                id="targetSub"
+                value={selectedTargetSub}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                  setSelectedTargetSub(e.target.value)
+                }
+                className={`mt-1 ${selectClasses}`}
+                disabled={isViewer}
+              >
+                {SUB_LABELS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Target preview */}
+          {targetLot && (
+            <div className={`p-2 rounded-lg ${targetPileColors.bg}`}>
+              <div className="flex items-center gap-2">
+                <span className={`w-2.5 h-2.5 rounded-full ${targetPileColors.dot}`} />
+                <span className={`text-sm font-semibold ${targetPileColors.text}`}>{targetLabel}</span>
+                {targetLot.quantity > 0 ? (
+                  <span className={`text-xs ${targetPileColors.text} ml-auto`}>
+                    {targetLot.gcv.toLocaleString()} kcal · {targetLot.quantity.toLocaleString()} MT
+                  </span>
+                ) : (
+                  <span className="text-xs text-slate-400 ml-auto">Empty</span>
+                )}
+              </div>
+            </div>
+          )}
+
           <div>
             <label htmlFor="newGcv" className="text-sm text-slate-600">
               GCV (kcal/kg)
@@ -142,8 +216,11 @@ export function ControlPanel({
             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isViewer}
           >
-            Add to Next Empty Entry
+            Add to Selected Location
           </button>
+          <p className="text-xs text-slate-500 italic">
+            If the location has data, GCV will be merged via weighted average
+          </p>
         </div>
       </div>
 
