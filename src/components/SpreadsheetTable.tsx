@@ -145,7 +145,7 @@ export function SpreadsheetTable({
     lotsSubtracted: "",
   });
 
-  const isViewer = role === "viewer";
+  const isSuperadmin = role === "superadmin";
 
   const startEditing = (lot: Lot) => {
     setEditingRowId(lot.id);
@@ -261,9 +261,11 @@ export function SpreadsheetTable({
               <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">
                 Deductions
               </th>
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">
-                Action
-              </th>
+              {isSuperadmin && (
+                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">
+                  Action
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -452,64 +454,62 @@ export function SpreadsheetTable({
                     )}
                   </td>
 
-                  {/* Actions */}
-                  <td className="px-4 py-2.5 text-center">
-                    {isEditing ? (
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={saveEditing}
-                          className="p-2 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
-                          title="Save changes"
-                        >
-                          <Check className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={cancelEditing}
-                          className="p-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
-                          title="Cancel editing"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center gap-1">
-                        {/* Select */}
-                        <button
-                          onClick={() => onSelectLot(isSelected ? null : index)}
-                          className={`p-2 rounded-lg transition-colors ${
-                            isSelected
-                              ? "bg-amber-500 text-white hover:bg-amber-600"
-                              : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                          }`}
-                          title={isSelected ? "Deselect row" : "Select row"}
-                        >
-                          <MousePointerClick className="w-4 h-4" />
-                        </button>
+                  {/* Actions — superadmin only */}
+                  {isSuperadmin && (
+                    <td className="px-4 py-2.5 text-center">
+                      {isEditing ? (
+                        <div className="flex items-center justify-center gap-1">
+                          <button
+                            onClick={saveEditing}
+                            className="p-2 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                            title="Save changes"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={cancelEditing}
+                            className="p-2 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                            title="Cancel editing"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-1">
+                          {/* Select */}
+                          <button
+                            onClick={() => onSelectLot(isSelected ? null : index)}
+                            className={`p-2 rounded-lg transition-colors ${
+                              isSelected
+                                ? "bg-amber-500 text-white hover:bg-amber-600"
+                                : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                            }`}
+                            title={isSelected ? "Deselect row" : "Select row"}
+                          >
+                            <MousePointerClick className="w-4 h-4" />
+                          </button>
 
-                        {!isViewer && (
-                          <>
-                            {/* Edit */}
-                            <button
-                              onClick={() => startEditing(lot)}
-                              className="p-2 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
-                              title="Edit row"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
+                          {/* Edit */}
+                          <button
+                            onClick={() => startEditing(lot)}
+                            className="p-2 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
+                            title="Edit row"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
 
-                            {/* Reset */}
-                            <button
-                              onClick={() => handleResetRow(lot.id)}
-                              className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
-                              title="Reset to zero"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </td>
+                          {/* Delete (reset to zero) */}
+                          <button
+                            onClick={() => handleResetRow(lot.id)}
+                            className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                            title="Delete row data"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  )}
                 </tr>
               );
             })}

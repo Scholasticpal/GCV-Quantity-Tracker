@@ -4,12 +4,14 @@ import { ControlPanel } from "./components/ControlPanel";
 import { SummaryCards } from "./components/SummaryCards";
 import { PileSummary } from "./components/PileSummary";
 import { DateHistoryPanel } from "./components/DateHistoryPanel";
+import { AdminPanel } from "./components/AdminPanel";
 import { Auth } from "./components/Auth";
 import { Lot } from "./types/lot";
 import { initializeLots, addLotToExisting, subtractFromLot } from "./utils/lotUtils";
 import { format } from "date-fns";
 import { supabase } from "./lib/supabase";
 import { Session } from "@supabase/supabase-js";
+import { ShieldCheck, LayoutDashboard, LogOut } from "lucide-react";
 
 export interface SavedState {
   date: string;
@@ -32,6 +34,9 @@ export default function App() {
   // ─── Loading / Syncing ────────────────────────────────────
   const [loadingData, setLoadingData] = useState(true);
   const [syncing, setSyncing] = useState(false);
+
+  // ─── View Mode ────────────────────────────────────────────
+  const [viewMode, setViewMode] = useState<"dashboard" | "admin">("dashboard");
 
   // ======================== AUTH ========================
   useEffect(() => {
@@ -383,41 +388,14 @@ export default function App() {
     }
   };
 
-  const handleClearAll = async () => {
-    const cleared = initializeLots(30);
-    setLots(cleared);
-    setSelectedLotIndex(null);
-    setSyncing(true);
 
-    try {
-      const updates = cleared.map((lot) =>
-        supabase
-          .from("lots")
-          .update({
-            gcv: lot.gcv,
-            quantity: lot.quantity,
-            original_gcv: lot.originalGcv,
-            original_quantity: lot.originalQuantity,
-            lots_added: lot.lotsAdded,
-            lots_subtracted: lot.lotsSubtracted,
-          })
-          .eq("id", lot.id)
-      );
-
-      const results = await Promise.all(updates);
-      const failed = results.find((r) => r.error);
-      if (failed?.error) throw failed.error;
-    } catch (error) {
-      console.error("Error clearing lots:", error);
-      await fetchData();
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
+
+  // ======================== HELPERS ========================
+  const canAccessAdmin = role === "superadmin" || role === "admin";
 
   // ======================== RENDER ========================
 
@@ -445,113 +423,162 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <header className="bg-emerald-700 text-white shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">GCV & Quantity Manager</h1>
-            <p className="text-emerald-100 mt-1 text-sm flex gap-2 items-center">
-              <span>Track Pile-1 to Pile-6 (A-E each) with dynamic GCV calculations</span>
-              {role && (
-                <span className="px-2 py-0.5 bg-emerald-600 rounded text-xs uppercase font-bold tracking-wider">
-                  {role}
-                </span>
-              )}
-            </p>
+    <div className="min-h-screen bg-slate-100 flex flex-col">
+      {/* ─── Navbar ─────────────────────────────────────────── */}
+      <header className="bg-emerald-700 text-white shadow-lg shrink-0">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+          {/* Left — Branding */}
+          <div className="flex items-center gap-3 min-w-0">
+            <ShieldCheck className="w-7 h-7 text-emerald-200 shrink-0" />
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold tracking-tight truncate sm:text-2xl">
+                GCV & Quantity Manager
+              </h1>
+              <p className="text-emerald-200 text-xs mt-0.5 flex gap-2 items-center">
+                <span className="hidden sm:inline">Pile-1 to Pile-6 (A-E) • Dynamic GCV</span>
+                {role && (
+                  <span className="px-2 py-0.5 bg-emerald-600 rounded text-xs uppercase font-bold tracking-wider">
+                    {role}
+                  </span>
+                )}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* Right — Controls */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {syncing && (
-              <span className="flex items-center gap-2 text-emerald-200 text-xs font-medium">
+              <span className="hidden sm:flex items-center gap-2 text-emerald-200 text-xs font-medium">
                 <span className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse" />
                 Syncing…
               </span>
             )}
+
+            {/* Admin toggle — only for superadmin / admin */}
+            {canAccessAdmin && (
+              <button
+                onClick={() => setViewMode(viewMode === "dashboard" ? "admin" : "dashboard")}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                  viewMode === "admin"
+                    ? "bg-white text-emerald-700 border-white hover:bg-emerald-50"
+                    : "bg-emerald-600 text-white border-emerald-500 hover:bg-emerald-500"
+                }`}
+              >
+                {viewMode === "admin" ? (
+                  <>
+                    <LayoutDashboard className="w-4 h-4" />
+                    <span className="hidden sm:inline">Dashboard</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4" />
+                    <span className="hidden sm:inline">Admin Panel</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Sign Out */}
             <button
               onClick={handleLogout}
-              className="text-sm bg-emerald-800 hover:bg-emerald-900 px-4 py-2 rounded-lg transition-colors font-medium border border-emerald-600"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-800 hover:bg-emerald-900 rounded-lg transition-colors text-sm font-medium border border-emerald-600"
             >
-              Sign Out
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Sign Out</span>
             </button>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-4">
-        <div className="flex border-b border-slate-300 mb-6">
-          <button
-            onClick={() => setActiveTab("editor")}
-            className={`px-6 py-3 font-medium text-sm transition-colors ${activeTab === "editor"
-                ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50"
-                : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-              }`}
-          >
-            Editor
-          </button>
-          <button
-            onClick={() => setActiveTab("history")}
-            className={`px-6 py-3 font-medium text-sm transition-colors ${activeTab === "history"
-                ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50"
-                : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-              }`}
-          >
-            Date History
-          </button>
+      {/* ─── Admin Panel View ───────────────────────────────── */}
+      {viewMode === "admin" && canAccessAdmin && (
+        <AdminPanel currentRole={role!} />
+      )}
+
+      {/* ─── Dashboard View ─────────────────────────────────── */}
+      {viewMode === "dashboard" && (
+        <div className="max-w-7xl mx-auto px-4 py-4 w-full">
+          {/* Tab bar — hidden from viewers */}
+          {role !== "viewer" && (
+            <div className="flex border-b border-slate-300 mb-6">
+              <button
+                onClick={() => setActiveTab("editor")}
+                className={`px-6 py-3 font-medium text-sm transition-colors ${activeTab === "editor"
+                    ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                  }`}
+              >
+                Editor
+              </button>
+              <button
+                onClick={() => setActiveTab("history")}
+                className={`px-6 py-3 font-medium text-sm transition-colors ${activeTab === "history"
+                    ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50"
+                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                  }`}
+              >
+                Date History
+              </button>
+            </div>
+          )}
+
+          {/* Viewer: Only summary cards and pile summary */}
+          {role === "viewer" && (
+            <>
+              <SummaryCards lots={lots} />
+              <PileSummary lots={lots} />
+            </>
+          )}
+
+          {/* Non-viewer: Full editor and history */}
+          {role !== "viewer" && activeTab === "editor" && (
+            <>
+              {role === "superadmin" && (
+                <div className="flex gap-3 mb-4">
+                  <button
+                    onClick={handleSaveCurrentState}
+                    disabled={syncing}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {syncing ? "Saving…" : "Save Today's Data"}
+                  </button>
+                </div>
+              )}
+
+              <SummaryCards lots={lots} />
+              <PileSummary lots={lots} />
+
+              <ControlPanel
+                onAddNewLot={handleAddNewLot}
+                onAddToExisting={handleAddToExisting}
+                onSubtractFromLot={handleSubtractFromLot}
+                selectedLotIndex={selectedLotIndex}
+                lots={lots}
+                role={role}
+              />
+
+              <SpreadsheetTable
+                lots={lots}
+                selectedLotIndex={selectedLotIndex}
+                onSelectLot={setSelectedLotIndex}
+                onEditLot={handleEditLot}
+                onResetLot={handleResetLot}
+                role={role}
+              />
+            </>
+          )}
+
+          {role !== "viewer" && activeTab === "history" && (
+            <DateHistoryPanel
+              savedStates={savedStates}
+              selectedDate={selectedDate}
+              onLoadState={handleLoadState}
+              onDeleteState={handleDeleteState}
+              role={role}
+            />
+          )}
         </div>
-
-        {activeTab === "editor" && (
-          <>
-            {role !== "viewer" && (
-              <div className="flex gap-3 mb-4">
-                <button
-                  onClick={handleSaveCurrentState}
-                  disabled={syncing}
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {syncing ? "Saving…" : "Save Today's Data"}
-                </button>
-                <button
-                  onClick={handleClearAll}
-                  disabled={syncing}
-                  className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Clear All
-                </button>
-              </div>
-            )}
-
-            <SummaryCards lots={lots} />
-            <PileSummary lots={lots} />
-
-            <ControlPanel
-              onAddNewLot={handleAddNewLot}
-              onAddToExisting={handleAddToExisting}
-              onSubtractFromLot={handleSubtractFromLot}
-              selectedLotIndex={selectedLotIndex}
-              lots={lots}
-              role={role}
-            />
-
-            <SpreadsheetTable
-              lots={lots}
-              selectedLotIndex={selectedLotIndex}
-              onSelectLot={setSelectedLotIndex}
-              onEditLot={handleEditLot}
-              onResetLot={handleResetLot}
-              role={role}
-            />
-          </>
-        )}
-
-        {activeTab === "history" && (
-          <DateHistoryPanel
-            savedStates={savedStates}
-            selectedDate={selectedDate}
-            onLoadState={handleLoadState}
-            onDeleteState={handleDeleteState}
-            role={role}
-          />
-        )}
-      </div>
+      )}
     </div>
   );
 }
