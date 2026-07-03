@@ -429,7 +429,9 @@ export default function App() {
     );
   }
 
-  if (!session) {
+  const isResettingPassword = localStorage.getItem("isResettingPassword") === "true";
+
+  if (!session || isResettingPassword) {
     return <Auth />;
   }
 

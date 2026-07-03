@@ -4,6 +4,7 @@ import { Eye, EyeOff, Mail, Lock, KeyRound, ShieldCheck, ArrowLeft, CheckCircle2
 
 type AuthTab = "login" | "signup" | "forgot";
 type ForgotStep = "email" | "otp" | "reset";
+type SignupStep = "details" | "otp";
 
 function PasswordInput({
   id,
@@ -103,14 +104,15 @@ export function Auth() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [otp, setOtp] = useState("");
 
   // ---------- Signup ----------
+  const [signupStep, setSignupStep] = useState<SignupStep>("details");
   const [confirmPassword, setConfirmPassword] = useState("");
 
   // ---------- Forgot ----------
   const [forgotStep, setForgotStep] = useState<ForgotStep>("email");
   const [forgotEmail, setForgotEmail] = useState("");
-  const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
@@ -126,9 +128,12 @@ export function Auth() {
 
   const switchTab = (tab: AuthTab) => {
     resetState();
+    localStorage.removeItem("isResettingPassword");
     if (tab === "forgot") {
       setForgotStep("email");
       setForgotEmail(email);
+    } else if (tab === "signup") {
+      setSignupStep("details");
     }
     setActiveTab(tab);
   };
@@ -156,7 +161,7 @@ export function Auth() {
   };
 
   // ======================== SIGNUP ========================
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleSignupDetails = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setMessage(null);
@@ -194,9 +199,37 @@ export function Auth() {
         return;
       }
 
-      setMessage("Account created! Check your email for the confirmation link.");
+      setSignupStep("otp");
+      setMessage("An 8-digit OTP has been sent to your email.");
     } catch (err: any) {
       setError(err.message || "Signup failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifySignupOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setMessage(null);
+
+    const cleanOtp = otp.replace(/\s/g, "");
+    if (cleanOtp.length !== 8 || !/^\d{8}$/.test(cleanOtp)) {
+      setError("Please enter a valid 8-digit OTP.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: cleanOtp,
+        type: "signup",
+      });
+      if (error) throw error;
+      setMessage("Account verified successfully! Logging you in...");
+    } catch (err: any) {
+      setError(err.message || "OTP verification failed.");
     } finally {
       setLoading(false);
     }
@@ -218,7 +251,7 @@ export function Auth() {
       const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim());
       if (error) throw error;
       setForgotStep("otp");
-      setMessage("A 6-digit OTP has been sent to your email.");
+      setMessage("An 8-digit OTP has been sent to your email.");
     } catch (err: any) {
       setError(err.message || "Failed to send reset email.");
     } finally {
@@ -233,8 +266,8 @@ export function Auth() {
     setMessage(null);
 
     const cleanOtp = otp.replace(/\s/g, "");
-    if (cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp)) {
-      setError("Please enter a valid 6-digit OTP.");
+    if (cleanOtp.length !== 8 || !/^\d{8}$/.test(cleanOtp)) {
+      setError("Please enter a valid 8-digit OTP.");
       return;
     }
 
@@ -246,6 +279,8 @@ export function Auth() {
         type: "recovery",
       });
       if (error) throw error;
+      
+      localStorage.setItem("isResettingPassword", "true");
       setForgotStep("reset");
       setMessage("OTP verified. Set your new password below.");
     } catch (err: any) {
@@ -278,9 +313,13 @@ export function Auth() {
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
+      
+      await supabase.auth.signOut();
+      localStorage.removeItem("isResettingPassword");
+      
       resetState();
       setActiveTab("login");
-      setMessage("Password reset successful! You can now log in with your new password.");
+      setMessage("Password updated successfully. Please log in with your new password.");
     } catch (err: any) {
       setError(err.message || "Failed to update password.");
     } finally {
@@ -306,21 +345,19 @@ export function Auth() {
           <div className="flex border-b border-slate-200">
             <button
               onClick={() => switchTab("login")}
-              className={`flex-1 py-3 text-sm font-semibold transition-colors ${
-                activeTab === "login"
+              className={`flex-1 py-3 text-sm font-semibold transition-colors ${activeTab === "login"
                   ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50"
                   : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-              }`}
+                }`}
             >
               Login
             </button>
             <button
               onClick={() => switchTab("signup")}
-              className={`flex-1 py-3 text-sm font-semibold transition-colors ${
-                activeTab === "signup"
+              className={`flex-1 py-3 text-sm font-semibold transition-colors ${activeTab === "signup"
                   ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50"
                   : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-              }`}
+                }`}
             >
               Sign Up
             </button>
@@ -342,13 +379,39 @@ export function Auth() {
               {(["email", "otp", "reset"] as ForgotStep[]).map((step, i) => (
                 <div
                   key={step}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    (forgotStep === "email" && i === 0) ||
-                    (forgotStep === "otp" && i <= 1) ||
-                    (forgotStep === "reset" && i <= 2)
+                  className={`w-2 h-2 rounded-full transition-colors ${(forgotStep === "email" && i === 0) ||
+                      (forgotStep === "otp" && i <= 1) ||
+                      (forgotStep === "reset" && i <= 2)
                       ? "bg-emerald-500"
                       : "bg-slate-300"
-                  }`}
+                    }`}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ---- Signup Header (OTP Step) ---- */}
+        {activeTab === "signup" && signupStep === "otp" && (
+          <div className="flex items-center gap-2 px-6 pt-5 pb-2">
+            <button
+              onClick={() => {
+                setSignupStep("details");
+                setError(null);
+                setMessage(null);
+                setOtp("");
+              }}
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors"
+              aria-label="Back to details"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <h2 className="text-base font-semibold text-slate-800">Verify Email</h2>
+            <div className="ml-auto flex items-center gap-1.5">
+              {(["details", "otp"] as SignupStep[]).map((step) => (
+                <div
+                  key={step}
+                  className="w-2 h-2 rounded-full transition-colors bg-emerald-500"
                 />
               ))}
             </div>
@@ -409,9 +472,9 @@ export function Auth() {
               </form>
             )}
 
-            {/* ======== SIGNUP FORM ======== */}
-            {activeTab === "signup" && (
-              <form onSubmit={handleSignup} className="space-y-4">
+            {/* ======== SIGNUP — STEP 1: DETAILS ======== */}
+            {activeTab === "signup" && signupStep === "details" && (
+              <form onSubmit={handleSignupDetails} className="space-y-4">
                 <div>
                   <label htmlFor="signupEmail" className="block text-sm font-medium text-slate-700 mb-1.5">
                     Email Address
@@ -462,7 +525,43 @@ export function Auth() {
                   disabled={loading}
                   className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
-                  {loading ? "Creating account…" : "Create Account"}
+                  {loading ? "Sending OTP…" : "Create Account"}
+                </button>
+              </form>
+            )}
+
+            {/* ======== SIGNUP — STEP 2: OTP ======== */}
+            {activeTab === "signup" && signupStep === "otp" && (
+              <form onSubmit={handleVerifySignupOtp} className="space-y-4">
+                <p className="text-sm text-slate-500">
+                  Enter the 8-digit code sent to <span className="font-semibold text-slate-700">{email}</span>.
+                </p>
+                <div>
+                  <label htmlFor="signupOtpInput" className="block text-sm font-medium text-slate-700 mb-1.5">
+                    OTP Code
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    <input
+                      id="signupOtpInput"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={8}
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                      placeholder="00000000"
+                      disabled={loading}
+                      className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm tracking-widest font-mono text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-shadow"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || otp.length !== 8}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  {loading ? "Verifying…" : "Verify Email & Login"}
                 </button>
               </form>
             )}
@@ -471,7 +570,7 @@ export function Auth() {
             {activeTab === "forgot" && forgotStep === "email" && (
               <form onSubmit={handleForgotSendEmail} className="space-y-4">
                 <p className="text-sm text-slate-500">
-                  Enter the email address associated with your account and we'll send you a 6-digit OTP code.
+                  Enter the email address associated with your account and we'll send you an 8-digit OTP code.
                 </p>
                 <div>
                   <label htmlFor="forgotEmail" className="block text-sm font-medium text-slate-700 mb-1.5">
@@ -500,7 +599,7 @@ export function Auth() {
             {activeTab === "forgot" && forgotStep === "otp" && (
               <form onSubmit={handleVerifyOtp} className="space-y-4">
                 <p className="text-sm text-slate-500">
-                  Enter the 6-digit code sent to <span className="font-semibold text-slate-700">{forgotEmail}</span>.
+                  Enter the 8-digit code sent to <span className="font-semibold text-slate-700">{forgotEmail}</span>.
                 </p>
                 <div>
                   <label htmlFor="otpInput" className="block text-sm font-medium text-slate-700 mb-1.5">
@@ -512,10 +611,10 @@ export function Auth() {
                       id="otpInput"
                       type="text"
                       inputMode="numeric"
-                      maxLength={6}
+                      maxLength={8}
                       value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      placeholder="000000"
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                      placeholder="00000000"
                       disabled={loading}
                       className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm tracking-widest font-mono text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-shadow"
                     />
@@ -524,7 +623,7 @@ export function Auth() {
 
                 <button
                   type="submit"
-                  disabled={loading || otp.length !== 6}
+                  disabled={loading || otp.length !== 8}
                   className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                   {loading ? "Verifying…" : "Verify OTP"}
@@ -588,7 +687,7 @@ export function Auth() {
                   disabled={loading}
                   className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
-                  {loading ? "Updating…" : "Set New Password"}
+                  {loading ? "Updating…" : "Update Password"}
                 </button>
               </form>
             )}
