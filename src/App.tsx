@@ -23,6 +23,7 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<string | undefined>(undefined);
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [isAuthorizing, setIsAuthorizing] = useState(true);
 
   // ─── Data State ───────────────────────────────────────────
   const [lots, setLots] = useState<Lot[]>([]);
@@ -42,21 +43,31 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) fetchRole(session.user.id);
-      else setLoadingAuth(false);
+      if (session) {
+        setIsAuthorizing(true);
+        fetchRole(session.user.id);
+      }
+      else {
+        setLoadingAuth(false);
+        setIsAuthorizing(false);
+      }
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       if (session) {
+        if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {
+          setIsAuthorizing(true);
+        }
         fetchRole(session.user.id);
       } else {
         setRole(undefined);
         setLots([]);
         setSavedStates([]);
         setLoadingAuth(false);
+        setIsAuthorizing(false);
         setLoadingData(true);
       }
     });
@@ -68,18 +79,59 @@ export default function App() {
     try {
       const { data, error } = await supabase
         .from("user_roles")
-        .select("role")
+        .select("role, is_banned")
         .eq("user_id", userId)
         .single();
 
       if (error) throw error;
+
+      if (data?.is_banned === true) {
+        // ── Ejection: banned user ──
+        window.alert("Access Denied: This account has been banned by an administrator.");
+        await supabase.auth.signOut();
+        setSession(null);
+        setRole(undefined);
+        setIsAuthorizing(false);
+        return;
+      }
+
       if (data) setRole(data.role);
     } catch (error) {
       console.error("Error fetching role:", error);
     } finally {
       setLoadingAuth(false);
+      setIsAuthorizing(false);
     }
   };
+
+  // ======================== HEARTBEAT ========================
+  useEffect(() => {
+    if (!session) return;
+
+    const pingLastActive = async () => {
+      const { error } = await supabase.rpc("ping_last_active");
+      if (error) console.error("Heartbeat error:", error);
+    };
+
+    // 1. Initial Ping
+    pingLastActive();
+
+    // 2. Interval Ping (every 5 minutes)
+    const interval = setInterval(pingLastActive, 300000);
+
+    // 3. Visibility Ping
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        pingLastActive();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [session]);
 
   // ======================== DATA FETCH ========================
   const fetchData = useCallback(async () => {
@@ -391,6 +443,7 @@ export default function App() {
 
 
   const handleLogout = async () => {
+    if (!window.confirm("Are you sure you want to sign out?")) return;
     await supabase.auth.signOut();
   };
 
@@ -399,9 +452,9 @@ export default function App() {
 
   // ======================== RENDER ========================
 
-  if (loadingAuth) {
+  if (loadingAuth && !isAuthorizing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+      <div className="h-screen w-full flex items-center justify-center bg-slate-100 overflow-hidden">
         <div className="text-emerald-700 text-lg font-medium">Loading...</div>
       </div>
     );
@@ -409,13 +462,21 @@ export default function App() {
 
   const isResettingPassword = localStorage.getItem("isResettingPassword") === "true";
 
+  if (isAuthorizing) {
+    return (
+      <div className="h-screen w-full bg-slate-100 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   if (!session || isResettingPassword) {
     return <Auth />;
   }
 
   if (loadingData) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-100 gap-3">
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-100 gap-3 overflow-hidden">
         <div className="w-8 h-8 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
         <div className="text-emerald-700 text-lg font-medium">Loading data...</div>
       </div>
@@ -423,16 +484,16 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
+    <div className="min-h-screen w-full flex flex-col bg-slate-100 md:h-screen md:overflow-hidden">
       {/* ─── Navbar ─────────────────────────────────────────── */}
-      <header className="bg-emerald-700 text-white shadow-lg shrink-0">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+      <header className="bg-emerald-700 text-white shadow-sm shrink-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-0">
           {/* Left — Branding */}
           <div className="flex items-center gap-3 min-w-0">
-            <ShieldCheck className="w-7 h-7 text-emerald-200 shrink-0" />
             <div className="min-w-0">
               <h1 className="text-xl font-bold tracking-tight truncate sm:text-2xl">
-                GCV & Quantity Manager
+                <span className="sm:hidden">GCV Manager</span>
+                <span className="hidden sm:inline">GCV & Quantity Manager</span>
               </h1>
               <p className="text-emerald-200 text-xs mt-0.5 flex gap-2 items-center">
                 <span className="hidden sm:inline">Pile-1 to Pile-6 (A-E) • Dynamic GCV</span>
@@ -446,7 +507,7 @@ export default function App() {
           </div>
 
           {/* Right — Controls */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-2 w-full md:w-auto">
             {syncing && (
               <span className="hidden sm:flex items-center gap-2 text-emerald-200 text-xs font-medium">
                 <span className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse" />
@@ -458,7 +519,7 @@ export default function App() {
             {canAccessAdmin && (
               <button
                 onClick={() => setViewMode(viewMode === "dashboard" ? "admin" : "dashboard")}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                className={`w-40 flex-shrink-0 whitespace-nowrap flex justify-center items-center gap-2 text-xs px-2 py-1 sm:text-sm sm:px-3 sm:py-1.5 rounded-lg font-medium transition-colors border cursor-pointer ${
                   viewMode === "admin"
                     ? "bg-white text-emerald-700 border-white hover:bg-emerald-50"
                     : "bg-emerald-600 text-white border-emerald-500 hover:bg-emerald-500"
@@ -467,12 +528,12 @@ export default function App() {
                 {viewMode === "admin" ? (
                   <>
                     <LayoutDashboard className="w-4 h-4" />
-                    <span className="hidden sm:inline">Dashboard</span>
+                    <span>Dashboard</span>
                   </>
                 ) : (
                   <>
                     <ShieldCheck className="w-4 h-4" />
-                    <span className="hidden sm:inline">Admin Panel</span>
+                    <span>Admin Panel</span>
                   </>
                 )}
               </button>
@@ -481,104 +542,107 @@ export default function App() {
             {/* Sign Out */}
             <button
               onClick={handleLogout}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-800 hover:bg-emerald-900 rounded-lg transition-colors text-sm font-medium border border-emerald-600"
+              className="inline-flex items-center whitespace-nowrap flex-shrink-0 gap-1.5 text-xs px-2 py-1 sm:text-sm sm:px-3 sm:py-1.5 bg-emerald-800 hover:bg-emerald-900 rounded-lg transition-colors font-medium border border-emerald-600 cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Sign Out</span>
+              <span>Sign Out</span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* ─── Admin Panel View ───────────────────────────────── */}
-      {viewMode === "admin" && canAccessAdmin && (
-        <AdminPanel currentRole={role!} />
-      )}
+      {/* ─── Scrollable Content Pane ────────────────────────── */}
+      <main className="flex-1 w-full p-2 sm:p-4 md:overflow-y-auto">
+        {/* ─── Admin Panel View ───────────────────────────────── */}
+        {viewMode === "admin" && canAccessAdmin && (
+          <AdminPanel currentRole={role!} />
+        )}
 
-      {/* ─── Dashboard View ─────────────────────────────────── */}
-      {viewMode === "dashboard" && (
-        <div className="max-w-7xl mx-auto px-4 py-4 w-full">
-          {/* Tab bar — hidden from viewers */}
-          {role !== "viewer" && (
-            <div className="flex border-b border-slate-300 mb-6">
-              <button
-                onClick={() => setActiveTab("editor")}
-                className={`px-6 py-3 font-medium text-sm transition-colors ${activeTab === "editor"
-                    ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50"
-                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-                  }`}
-              >
-                Editor
-              </button>
-              <button
-                onClick={() => setActiveTab("history")}
-                className={`px-6 py-3 font-medium text-sm transition-colors ${activeTab === "history"
-                    ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50"
-                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-                  }`}
-              >
-                Date History
-              </button>
-            </div>
-          )}
+        {/* ─── Dashboard View ─────────────────────────────────── */}
+        {viewMode === "dashboard" && (
+          <div className="max-w-7xl mx-auto w-full">
+            {/* Tab bar — hidden from viewers */}
+            {role !== "viewer" && (
+              <div className="flex border-b border-slate-300 mb-6">
+                <button
+                  onClick={() => setActiveTab("editor")}
+                  className={`px-6 py-3 font-medium text-sm transition-colors cursor-pointer ${activeTab === "editor"
+                      ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50"
+                      : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                    }`}
+                >
+                  Editor
+                </button>
+                <button
+                  onClick={() => setActiveTab("history")}
+                  className={`px-6 py-3 font-medium text-sm transition-colors cursor-pointer ${activeTab === "history"
+                      ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50"
+                      : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                    }`}
+                >
+                  Date History
+                </button>
+              </div>
+            )}
 
-          {/* Viewer: Only summary cards and pile summary */}
-          {role === "viewer" && (
-            <>
-              <SummaryCards lots={lots} />
-              <PileSummary lots={lots} />
-            </>
-          )}
+            {/* Viewer: Only summary cards and pile summary */}
+            {role === "viewer" && (
+              <>
+                <SummaryCards lots={lots} />
+                <PileSummary lots={lots} />
+              </>
+            )}
 
-          {/* Non-viewer: Full editor and history */}
-          {role !== "viewer" && activeTab === "editor" && (
-            <>
-              {role === "superadmin" && (
-                <div className="flex gap-3 mb-4">
-                  <button
-                    onClick={handleSaveCurrentState}
-                    disabled={syncing}
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {syncing ? "Saving…" : "Save Today's Data"}
-                  </button>
-                </div>
-              )}
+            {/* Non-viewer: Full editor and history */}
+            {role !== "viewer" && activeTab === "editor" && (
+              <>
+                {role === "superadmin" && (
+                  <div className="flex gap-3 mb-4">
+                    <button
+                      onClick={handleSaveCurrentState}
+                      disabled={syncing}
+                      className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    >
+                      {syncing ? "Saving…" : "Save Today's Data"}
+                    </button>
+                  </div>
+                )}
 
-              <SummaryCards lots={lots} />
-              <PileSummary lots={lots} />
+                <SummaryCards lots={lots} />
+                <PileSummary lots={lots} />
 
-              <ControlPanel
-                onAddNewLot={handleAddNewLot}
-                onAddToExisting={handleAddToExisting}
-                onSubtractFromLot={handleSubtractFromLot}
-                selectedLotIndex={selectedLotIndex}
-                lots={lots}
+                <ControlPanel
+                  onAddNewLot={handleAddNewLot}
+                  onAddToExisting={handleAddToExisting}
+                  onSubtractFromLot={handleSubtractFromLot}
+                  selectedLotIndex={selectedLotIndex}
+                  lots={lots}
+                  role={role}
+                />
+
+                <SpreadsheetTable
+                  lots={lots}
+                  selectedLotIndex={selectedLotIndex}
+                  onSelectLot={setSelectedLotIndex}
+                  onEditLot={handleEditLot}
+                  onResetLot={handleResetLot}
+                  role={role}
+                />
+              </>
+            )}
+
+            {role !== "viewer" && activeTab === "history" && (
+              <DateHistoryPanel
+                savedStates={savedStates}
+                selectedDate={selectedDate}
+                onLoadState={handleLoadState}
+                onDeleteState={handleDeleteState}
                 role={role}
               />
-
-              <SpreadsheetTable
-                lots={lots}
-                selectedLotIndex={selectedLotIndex}
-                onSelectLot={setSelectedLotIndex}
-                onEditLot={handleEditLot}
-                onResetLot={handleResetLot}
-                role={role}
-              />
-            </>
-          )}
-
-          {role !== "viewer" && activeTab === "history" && (
-            <DateHistoryPanel
-              savedStates={savedStates}
-              selectedDate={selectedDate}
-              onLoadState={handleLoadState}
-              onDeleteState={handleDeleteState}
-              role={role}
-            />
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
+      </main>
     </div>
   );
 }

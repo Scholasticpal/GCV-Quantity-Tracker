@@ -153,6 +153,19 @@ export function Auth() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (error) throw error;
+
+      const { data } = await supabase
+        .from("user_roles")
+        .select("is_banned")
+        .eq("email", email.trim())
+        .single();
+
+      if (data?.is_banned === true) {
+        window.alert("Access Denied: This account has been banned by an administrator.");
+        await supabase.auth.signOut();
+        setLoading(false);
+        return;
+      }
     } catch (err: any) {
       setError(err.message || "Login failed. Please try again.");
     } finally {
