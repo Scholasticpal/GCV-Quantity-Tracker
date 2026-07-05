@@ -32,7 +32,7 @@ function PasswordInput({
         placeholder={placeholder}
         disabled={disabled}
         autoComplete="off"
-        className="w-full pl-10 pr-10 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-shadow"
+        className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#003B70] focus:border-[#003B70] disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 transition-shadow"
       />
       <button
         type="button"
@@ -71,7 +71,7 @@ function EmailInput({
         placeholder={placeholder}
         disabled={disabled}
         autoComplete="email"
-        className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-shadow"
+        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#003B70] focus:border-[#003B70] disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 transition-shadow"
       />
     </div>
   );
@@ -79,7 +79,7 @@ function EmailInput({
 
 function ErrorBanner({ message }: { message: string }) {
   return (
-    <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200 flex items-start gap-2">
+    <div className="p-3 bg-red-50 text-red-700 text-sm rounded-md border border-red-200 flex items-start gap-2">
       <span className="shrink-0 mt-0.5">⚠</span>
       <span>{message}</span>
     </div>
@@ -88,7 +88,7 @@ function ErrorBanner({ message }: { message: string }) {
 
 function SuccessBanner({ message }: { message: string }) {
   return (
-    <div className="p-3 bg-emerald-50 text-emerald-700 text-sm rounded-lg border border-emerald-200 flex items-start gap-2">
+  <div className="p-3 bg-white text-slate-800 text-sm rounded-r-md border-l-4 border-l-emerald-600 shadow-lg flex items-start gap-2">
       <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
       <span>{message}</span>
     </div>
@@ -346,14 +346,14 @@ export function Auth() {
   // ======================== RENDER ========================
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-md w-full overflow-hidden">
+      <div className="bg-white rounded-md shadow-lg border border-slate-200 max-w-md w-full overflow-hidden">
         {/* ---- Header ---- */}
-        <div className="bg-emerald-700 p-6 text-center">
+        <div className="p-6 text-center border-b border-slate-200">
           <div className="flex items-center justify-center gap-2 mb-1">
-            <ShieldCheck className="w-7 h-7 text-emerald-200" />
-            <h1 className="text-2xl font-bold text-white">GCV & Quantity Manager</h1>
+            <ShieldCheck className="w-7 h-7 text-slate-800" />
+            <h1 className="text-base font-bold text-slate-900">GCV & Quantity Manager</h1>
           </div>
-          <p className="text-emerald-200 text-sm">Authenticate to access the dashboard</p>
+          <p className="text-slate-500 text-sm">Authenticate to access the dashboard</p>
         </div>
 
         {/* ---- Tab Bar ---- */}
@@ -362,7 +362,7 @@ export function Auth() {
             <button
               onClick={() => switchTab("login")}
               className={`flex-1 py-3 text-sm font-semibold transition-colors ${activeTab === "login"
-                  ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50"
+                  ? "bg-blue-50 border-b-2 border-[#003B70] text-[#003B70] font-medium"
                   : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
                 }`}
             >
@@ -371,7 +371,7 @@ export function Auth() {
             <button
               onClick={() => switchTab("signup")}
               className={`flex-1 py-3 text-sm font-semibold transition-colors ${activeTab === "signup"
-                  ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50"
+                  ? "bg-blue-50 border-b-2 border-[#003B70] text-[#003B70] font-medium"
                   : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
                 }`}
             >
@@ -395,10 +395,10 @@ export function Auth() {
               {(["email", "otp", "reset"] as ForgotStep[]).map((step, i) => (
                 <div
                   key={step}
-                  className={`w-2 h-2 rounded-full transition-colors ${(forgotStep === "email" && i === 0) ||
+                  className={`w-2 h-2 rounded-sm transition-colors ${(forgotStep === "email" && i === 0) ||
                       (forgotStep === "otp" && i <= 1) ||
                       (forgotStep === "reset" && i <= 2)
-                      ? "bg-emerald-500"
+                      ? "bg-[#003B70]"
                       : "bg-slate-300"
                     }`}
                 />
@@ -427,7 +427,7 @@ export function Auth() {
               {(["details", "otp"] as SignupStep[]).map((step) => (
                 <div
                   key={step}
-                  className="w-2 h-2 rounded-full transition-colors bg-emerald-500"
+                  className="w-2 h-2 rounded-sm transition-colors bg-[#003B70]"
                 />
               ))}
             </div>
@@ -464,7 +464,7 @@ export function Auth() {
                     <button
                       type="button"
                       onClick={() => switchTab("forgot")}
-                      className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold transition-colors"
+                      className="text-xs text-[#003B70] hover:text-[#002A50] font-semibold transition-colors"
                     >
                       Forgot password?
                     </button>
@@ -481,7 +481,7 @@ export function Auth() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  className="w-full bg-[#003B70] hover:bg-[#002A50] text-white font-semibold py-2.5 px-4 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 text-sm"
                 >
                   {loading ? "Signing in…" : "Sign In"}
                 </button>
@@ -539,7 +539,7 @@ export function Auth() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  className="w-full bg-[#003B70] hover:bg-[#002A50] text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 text-sm"
                 >
                   {loading ? "Sending OTP…" : "Create Account"}
                 </button>
@@ -567,7 +567,7 @@ export function Auth() {
                       onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))}
                       placeholder="00000000"
                       disabled={loading}
-                      className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm tracking-widest font-mono text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-shadow"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-md text-sm tracking-widest font-mono text-center focus:outline-none focus:ring-2 focus:ring-[#003B70] focus:border-[#003B70] disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 transition-shadow"
                     />
                   </div>
                 </div>
@@ -575,7 +575,7 @@ export function Auth() {
                 <button
                   type="submit"
                   disabled={loading || otp.length !== 8}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  className="w-full bg-[#003B70] hover:bg-[#002A50] text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 text-sm"
                 >
                   {loading ? "Verifying…" : "Verify Email & Login"}
                 </button>
@@ -604,7 +604,7 @@ export function Auth() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  className="w-full bg-[#003B70] hover:bg-[#002A50] text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 text-sm"
                 >
                   {loading ? "Sending…" : "Send OTP Code"}
                 </button>
@@ -632,7 +632,7 @@ export function Auth() {
                       onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 8))}
                       placeholder="00000000"
                       disabled={loading}
-                      className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm tracking-widest font-mono text-center focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-shadow"
+                      className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg text-sm tracking-widest font-mono text-center focus:outline-none focus:ring-2 focus:ring-[#003B70] focus:border-[#003B70] disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 transition-shadow"
                     />
                   </div>
                 </div>
@@ -640,7 +640,7 @@ export function Auth() {
                 <button
                   type="submit"
                   disabled={loading || otp.length !== 8}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  className="w-full bg-[#003B70] hover:bg-[#002A50] text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 text-sm"
                 >
                   {loading ? "Verifying…" : "Verify OTP"}
                 </button>
@@ -701,7 +701,7 @@ export function Auth() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  className="w-full bg-[#003B70] hover:bg-[#002A50] text-white font-semibold py-2.5 px-4 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200 text-sm"
                 >
                   {loading ? "Updating…" : "Update Password"}
                 </button>

@@ -8,10 +8,10 @@ import { AdminPanel } from "./components/AdminPanel";
 import { Auth } from "./components/Auth";
 import { Lot } from "./types/lot";
 import { initializeLots, addLotToExisting, subtractFromLot } from "./utils/lotUtils";
-import { format } from "date-fns";
+
 import { supabase } from "./lib/supabase";
 import { Session } from "@supabase/supabase-js";
-import { ShieldCheck, LayoutDashboard, LogOut } from "lucide-react";
+import { ShieldCheck, LayoutDashboard, LogOut, Menu } from "lucide-react";
 
 export interface SavedState {
   date: string;
@@ -38,6 +38,7 @@ export default function App() {
 
   // ─── View Mode ────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"dashboard" | "admin">("dashboard");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // ======================== AUTH ========================
   useEffect(() => {
@@ -342,17 +343,13 @@ export default function App() {
     const changedLot = newLots.find((lot) => lot.id === id);
     if (!changedLot || !oldLot) return;
 
-    let changedField = "";
-    let oldValue: any = "";
-    let newValue: any = "";
+    const changes: string[] = [];
     for (const key of Object.keys(updatedValues) as (keyof Lot)[]) {
       if (oldLot[key] !== updatedValues[key]) {
-        changedField = key;
-        oldValue = oldLot[key];
-        newValue = updatedValues[key];
-        break;
+        changes.push(`${key}: ${oldLot[key]} -> ${updatedValues[key]}`);
       }
     }
+    const changeString = changes.length > 0 ? changes.join(", ") : "No changes made";
 
     setLots(newLots);
     setSyncing(true);
@@ -363,7 +360,7 @@ export default function App() {
       const sublotName = ["A", "B", "C", "D", "E"][index % 5];
       await supabase.rpc('log_activity', { 
         p_category: 'DATA_ENTRY', 
-        p_detail: `Changed ${changedField} from ${oldValue} to ${newValue}`,
+        p_detail: `Updated: ${changeString}`,
         p_metadata: { action_type: 'Inline Edit', target_pile: pileName, target_sublot: sublotName }
       });
     } catch {
@@ -410,42 +407,6 @@ export default function App() {
 
   // ======================== SAVED STATES ========================
 
-  const handleSaveCurrentState = async () => {
-    const today = format(new Date(), "yyyy-MM-dd");
-
-    setSyncing(true);
-    try {
-      const { error } = await supabase
-        .from("saved_states")
-        .upsert(
-          { state_date: today, lots_data: lots },
-          { onConflict: "state_date" }
-        );
-
-      if (error) throw error;
-
-      // Update local state
-      const existingIndex = savedStates.findIndex((s) => s.date === today);
-      if (existingIndex >= 0) {
-        setSavedStates(
-          savedStates.map((s, i) =>
-            i === existingIndex ? { ...s, lots } : s
-          )
-        );
-      } else {
-        setSavedStates([...savedStates, { date: today, lots }]);
-      }
-      await supabase.rpc('log_activity', { 
-        p_category: 'SYSTEM', 
-        p_detail: 'Saved historical snapshot', 
-        p_metadata: { action_type: 'Save State' } 
-      });
-    } catch (error) {
-      console.error("Error saving state:", error);
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   const handleLoadState = async (date: string) => {
     const state = savedStates.find((s) => s.date === date);
@@ -531,7 +492,7 @@ export default function App() {
   if (loadingAuth && !isAuthorizing) {
     return (
       <div className="h-screen w-full flex items-center justify-center bg-slate-100 overflow-hidden">
-        <div className="text-emerald-700 text-lg font-medium">Loading...</div>
+        <div className="text-[#003B70] text-lg font-medium">Loading...</div>
       </div>
     );
   }
@@ -541,7 +502,7 @@ export default function App() {
   if (isAuthorizing) {
     return (
       <div className="h-screen w-full bg-slate-100 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+        <div className="border-4 border-slate-200 border-t-[#003B70] rounded-full w-8 h-8 animate-spin" />
       </div>
     );
   }
@@ -553,8 +514,8 @@ export default function App() {
   if (loadingData) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-100 gap-3 overflow-hidden">
-        <div className="w-8 h-8 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
-        <div className="text-emerald-700 text-lg font-medium">Loading data...</div>
+        <div className="border-4 border-slate-200 border-t-[#003B70] rounded-full w-8 h-8 animate-spin" />
+        <div className="text-[#003B70] text-lg font-medium">Loading data...</div>
       </div>
     );
   }
@@ -562,19 +523,19 @@ export default function App() {
   return (
     <div className="min-h-screen w-full flex flex-col bg-slate-100 md:h-screen md:overflow-hidden">
       {/* ─── Navbar ─────────────────────────────────────────── */}
-      <header className="bg-emerald-700 text-white shadow-sm shrink-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-0">
+      <header className="bg-[#003B70] text-white shadow-sm shrink-0 z-50 relative">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           {/* Left — Branding */}
           <div className="flex items-center gap-3 min-w-0">
             <div className="min-w-0">
-              <h1 className="text-xl font-bold tracking-tight truncate sm:text-2xl">
+              <h1 className="text-base font-bold tracking-tight truncate sm:text-lg">
                 <span className="sm:hidden">GCV Manager</span>
                 <span className="hidden sm:inline">GCV & Quantity Manager</span>
               </h1>
-              <p className="text-emerald-200 text-xs mt-0.5 flex gap-2 items-center">
+              <p className="text-slate-400 text-sm mt-0.5 flex gap-2 items-center">
                 <span className="hidden sm:inline">Pile-1 to Pile-6 (A-E) • Dynamic GCV</span>
                 {role && (
-                  <span className="px-2 py-0.5 bg-emerald-600 rounded text-xs uppercase font-bold tracking-wider">
+                  <span className="px-2.5 py-0.5 bg-amber-500 text-white rounded-md text-xs uppercase font-bold tracking-wider shadow-sm border border-amber-600">
                     {role}
                   </span>
                 )}
@@ -582,12 +543,17 @@ export default function App() {
             </div>
           </div>
 
-          {/* Right — Controls */}
-          <div className="flex items-center gap-2 w-full md:w-auto">
+          {/* Right — Desktop Controls */}
+          <div className="hidden md:flex items-center gap-4">
             {syncing && (
-              <span className="hidden sm:flex items-center gap-2 text-emerald-200 text-xs font-medium">
-                <span className="w-2 h-2 bg-emerald-300 rounded-full animate-pulse" />
+              <span className="flex items-center gap-2 text-slate-400 text-sm font-medium">
+                <span className="w-2 h-2 bg-slate-500 rounded-sm animate-pulse" />
                 Syncing…
+              </span>
+            )}
+            {session?.user?.email && (
+              <span className="text-sm text-slate-200 truncate max-w-[200px]">
+                {session.user.email}
               </span>
             )}
 
@@ -595,11 +561,7 @@ export default function App() {
             {canAccessAdmin && (
               <button
                 onClick={() => setViewMode(viewMode === "dashboard" ? "admin" : "dashboard")}
-                className={`w-40 flex-shrink-0 whitespace-nowrap flex justify-center items-center gap-2 text-xs px-2 py-1 sm:text-sm sm:px-3 sm:py-1.5 rounded-lg font-medium transition-colors border cursor-pointer ${
-                  viewMode === "admin"
-                    ? "bg-white text-emerald-700 border-white hover:bg-emerald-50"
-                    : "bg-emerald-600 text-white border-emerald-500 hover:bg-emerald-500"
-                }`}
+                className="flex justify-center items-center gap-2 text-sm px-3 py-1.5 rounded-md font-medium transition-colors border border-transparent cursor-pointer bg-[#003B70] hover:bg-[#002A50] text-white"
               >
                 {viewMode === "admin" ? (
                   <>
@@ -618,13 +580,73 @@ export default function App() {
             {/* Sign Out */}
             <button
               onClick={handleLogout}
-              className="inline-flex items-center whitespace-nowrap flex-shrink-0 gap-1.5 text-xs px-2 py-1 sm:text-sm sm:px-3 sm:py-1.5 bg-emerald-800 hover:bg-emerald-900 rounded-lg transition-colors font-medium border border-emerald-600 cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-[#003B70] hover:bg-[#002A50] text-white rounded-md transition-colors font-medium border border-transparent cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
             >
               <LogOut className="w-4 h-4" />
               <span>Sign Out</span>
             </button>
           </div>
+
+          {/* Right — Mobile Hamburger */}
+          <div className="md:hidden flex items-center gap-3">
+            {syncing && (
+              <span className="flex items-center gap-1.5 text-slate-400 text-xs font-medium">
+                <span className="w-1.5 h-1.5 bg-slate-500 rounded-sm animate-pulse" />
+                Syncing
+              </span>
+            )}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 -mr-2 rounded-md hover:bg-[#002A50] transition-colors"
+            >
+              <Menu className="w-6 h-6 text-white" />
+            </button>
+          </div>
         </div>
+
+        {/* Mobile Dropdown */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden absolute top-full left-0 w-full bg-[#003B70] border-t border-[#002A50] shadow-xl p-4 flex flex-col gap-4 z-50">
+            {session?.user?.email && (
+              <span className="text-slate-300 text-sm font-medium border-b border-[#002A50] pb-3 mb-1">
+                {session.user.email}
+              </span>
+            )}
+            
+            {canAccessAdmin && (
+              <button
+                onClick={() => {
+                  setViewMode(viewMode === "dashboard" ? "admin" : "dashboard");
+                  setIsMobileMenuOpen(false);
+                }}
+                className="w-full flex justify-center items-center gap-2 text-sm px-3 py-2 rounded-md font-medium transition-colors bg-[#002A50] hover:bg-slate-800 text-white"
+              >
+                {viewMode === "admin" ? (
+                  <>
+                    <LayoutDashboard className="w-4 h-4" />
+                    <span>Dashboard</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Admin Panel</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                handleLogout();
+              }}
+              className="w-full flex justify-center items-center gap-2 text-sm px-3 py-2 rounded-md font-medium transition-colors bg-[#002A50] hover:bg-slate-800 text-white"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        )}
       </header>
 
       {/* ─── Scrollable Content Pane ────────────────────────── */}
@@ -639,21 +661,21 @@ export default function App() {
           <div className="max-w-7xl mx-auto w-full">
             {/* Tab bar — hidden from viewers */}
             {role !== "viewer" && (
-              <div className="flex border-b border-slate-300 mb-6">
+              <div className="flex border-b border-slate-200 mb-6">
                 <button
                   onClick={() => setActiveTab("editor")}
-                  className={`px-6 py-3 font-medium text-sm transition-colors cursor-pointer ${activeTab === "editor"
-                      ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50"
-                      : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                  className={`px-6 py-3 text-sm transition-colors cursor-pointer -mb-px ${activeTab === "editor"
+                      ? "border-b-2 border-[#003B70] text-[#003B70] font-semibold bg-transparent"
+                      : "border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium"
                     }`}
                 >
                   Editor
                 </button>
                 <button
                   onClick={() => setActiveTab("history")}
-                  className={`px-6 py-3 font-medium text-sm transition-colors cursor-pointer ${activeTab === "history"
-                      ? "text-emerald-700 border-b-2 border-emerald-600 bg-emerald-50"
-                      : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                  className={`px-6 py-3 text-sm transition-colors cursor-pointer -mb-px ${activeTab === "history"
+                      ? "border-b-2 border-[#003B70] text-[#003B70] font-semibold bg-transparent"
+                      : "border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium"
                     }`}
                 >
                   Date History
@@ -672,17 +694,6 @@ export default function App() {
             {/* Non-viewer: Full editor and history */}
             {role !== "viewer" && activeTab === "editor" && (
               <>
-                {role === "superadmin" && (
-                  <div className="flex gap-3 mb-4">
-                    <button
-                      onClick={handleSaveCurrentState}
-                      disabled={syncing}
-                      className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    >
-                      {syncing ? "Saving…" : "Save Today's Data"}
-                    </button>
-                  </div>
-                )}
 
                 <SummaryCards lots={lots} />
                 <PileSummary lots={lots} />

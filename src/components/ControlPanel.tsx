@@ -2,6 +2,7 @@ import { useState, ChangeEvent } from "react";
 import { Lot } from "../types/lot";
 import { Plus, Minus } from "lucide-react";
 import { getLotLabel, getPileNumber } from "../utils/lotUtils";
+import { PILE_THEMES } from "../utils/lotUtils";
 
 const MAX_VALUE = 1000000;
 const SUB_LABELS = ["A", "B", "C", "D", "E"];
@@ -15,14 +16,7 @@ interface ControlPanelProps {
   role?: string;
 }
 
-const PILE_COLORS: Record<number, { bg: string; text: string; dot: string }> = {
-  1: { bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500" },
-  2: { bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-500" },
-  3: { bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-500" },
-  4: { bg: "bg-purple-100", text: "text-purple-700", dot: "bg-purple-500" },
-  5: { bg: "bg-rose-100", text: "text-rose-700", dot: "bg-rose-500" },
-  6: { bg: "bg-teal-100", text: "text-teal-700", dot: "bg-teal-500" },
-};
+
 
 export function ControlPanel({
   onAddNewLot,
@@ -91,37 +85,35 @@ export function ControlPanel({
   const selectedLot = selectedLotIndex !== null ? lots[selectedLotIndex] : null;
   const selectedLotLabel = selectedLot ? getLotLabel(selectedLot.id) : "";
   const selectedPileNumber = selectedLot ? getPileNumber(selectedLot.id) : 0;
-  const pileColors = PILE_COLORS[selectedPileNumber] || PILE_COLORS[1];
 
   // Preview of the target lot for "Add New Lot"
   const targetIndex = (selectedTargetPile - 1) * 5 + SUB_LABELS.indexOf(selectedTargetSub);
   const targetLot = lots[targetIndex] || null;
   const targetLabel = targetLot ? getLotLabel(targetLot.id) : `Pile-${selectedTargetPile} : ${selectedTargetSub}`;
-  const targetPileColors = PILE_COLORS[selectedTargetPile] || PILE_COLORS[1];
 
   if (isViewer) {
     return (
-      <div className="mb-6 p-4 bg-blue-50 text-blue-700 rounded-xl border border-blue-200 shadow-sm flex items-center justify-center">
+      <div className="mb-6 p-4 bg-slate-50 text-slate-700 rounded-md border border-slate-200 shadow-sm flex items-center justify-center">
         <p className="font-medium">You are in Viewer mode. Editing controls are disabled.</p>
       </div>
     );
   }
 
   const selectClasses =
-    "w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500";
+    "w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-[#003B70] focus:border-[#003B70] disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200";
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-      <div className="bg-white rounded-xl shadow-md p-5 border border-slate-200">
-        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <Plus className="w-5 h-5 text-emerald-600" />
+      <div className="bg-white rounded-md border border-slate-200 p-4">
+        <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <Plus className="w-5 h-5 text-slate-800" />
           Add New Lot
         </h3>
         <div className="space-y-3">
           {/* Pile & Sub-lot dropdowns */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="targetPile" className="text-sm text-slate-600">
+              <label htmlFor="targetPile" className="text-sm font-medium text-slate-700">
                 Pile
               </label>
               <select
@@ -141,7 +133,7 @@ export function ControlPanel({
               </select>
             </div>
             <div>
-              <label htmlFor="targetSub" className="text-sm text-slate-600">
+              <label htmlFor="targetSub" className="text-sm font-medium text-slate-700">
                 Sub-lot
               </label>
               <select
@@ -164,23 +156,22 @@ export function ControlPanel({
 
           {/* Target preview */}
           {targetLot && (
-            <div className={`p-2 rounded-lg ${targetPileColors.bg}`}>
-              <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${targetPileColors.dot}`} />
-                <span className={`text-sm font-semibold ${targetPileColors.text}`}>{targetLabel}</span>
+            <div className={`p-3 rounded-md font-medium border-l-4 ${PILE_THEMES[selectedTargetPile]?.bgSoft} ${PILE_THEMES[selectedTargetPile]?.borderLeft} ${PILE_THEMES[selectedTargetPile]?.text}`}>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-bold">{targetLabel}</span>
                 {targetLot.quantity > 0 ? (
-                  <span className={`text-xs ${targetPileColors.text} ml-auto`}>
+                  <span className="text-xs ml-auto">
                     {targetLot.gcv.toLocaleString()} kcal · {targetLot.quantity.toLocaleString()} MT
                   </span>
                 ) : (
-                  <span className="text-xs text-slate-400 ml-auto">Empty</span>
+                  <span className="text-xs opacity-70 ml-auto">Empty</span>
                 )}
               </div>
             </div>
           )}
 
           <div>
-            <label htmlFor="newGcv" className="text-sm text-slate-600">
+            <label htmlFor="newGcv" className="text-sm font-medium text-slate-700">
               GCV (kcal/kg)
             </label>
             <input
@@ -191,12 +182,12 @@ export function ControlPanel({
               value={addGcv}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAddGcv(e.target.value)}
               placeholder="e.g., 4500"
-              className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#003B70] focus:border-[#003B70] disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
               disabled={isViewer}
             />
           </div>
           <div>
-            <label htmlFor="newQuantity" className="text-sm text-slate-600">
+            <label htmlFor="newQuantity" className="text-sm font-medium text-slate-700">
               Quantity (MT)
             </label>
             <input
@@ -207,13 +198,13 @@ export function ControlPanel({
               value={addQuantity}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAddQuantity(e.target.value)}
               placeholder="e.g., 1000"
-              className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#003B70] focus:border-[#003B70] disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
               disabled={isViewer}
             />
           </div>
           <button
             onClick={handleAddNewLot}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-[#003B70] hover:bg-[#002A50] text-white px-4 py-2 rounded-md text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
             disabled={isViewer}
           >
             Add to Selected Location
@@ -224,29 +215,32 @@ export function ControlPanel({
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-md p-5 border border-slate-200">
-        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <Plus className="w-5 h-5 text-blue-600" />
+      <div className="bg-white rounded-md border border-slate-200 p-4 relative overflow-hidden">
+        <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <Plus className="w-5 h-5 text-slate-800" />
           Add to Selected Lot
         </h3>
-        {selectedLot ? (
-          <div className={`mb-3 p-3 rounded-lg ${pileColors.bg}`}>
+        
+        {/* Overlay for disabled state */}
+        {!selectedLot && (
+          <div className="absolute inset-0 z-10 backdrop-blur-[2px] bg-slate-50/60 flex items-center justify-center rounded-md border border-transparent">
+            <span className="bg-white text-[#003B70] font-semibold text-sm px-4 py-2 rounded-full shadow-md border border-slate-200">Select an entry from the table first</span>
+          </div>
+        )}
+
+        {selectedLot && (
+          <div className={`p-3 rounded-md mb-4 font-medium border ${PILE_THEMES[selectedPileNumber]?.bgSoft} ${PILE_THEMES[selectedPileNumber]?.borderLight} ${PILE_THEMES[selectedPileNumber]?.text}`}>
             <div className="flex items-center gap-2 mb-1">
-              <span className={`w-3 h-3 rounded-full ${pileColors.dot}`} />
-              <span className={`font-bold ${pileColors.text}`}>{selectedLotLabel}</span>
+              <span className="font-bold">{selectedLotLabel}</span>
             </div>
-            <span className={`text-sm ${pileColors.text}`}>
+            <span className="text-sm">
               Current: {selectedLot.gcv.toLocaleString()} kcal/kg, {selectedLot.quantity.toLocaleString()} MT
             </span>
-          </div>
-        ) : (
-          <div className="mb-3 p-2 bg-amber-50 rounded-lg text-sm">
-            <span className="text-amber-700">Select an entry from the table first</span>
           </div>
         )}
         <div className="space-y-3">
           <div>
-            <label htmlFor="existingGcv" className="text-sm text-slate-600">
+            <label htmlFor="existingGcv" className="text-sm font-medium text-slate-700">
               New Lot GCV (kcal/kg)
             </label>
             <input
@@ -257,12 +251,12 @@ export function ControlPanel({
               value={addToExistingGcv}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAddToExistingGcv(e.target.value)}
               placeholder="e.g., 5000"
-              className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#003B70] focus:border-[#003B70] disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
               disabled={selectedLotIndex === null || isViewer}
             />
           </div>
           <div>
-            <label htmlFor="existingQuantity" className="text-sm text-slate-600">
+            <label htmlFor="existingQuantity" className="text-sm font-medium text-slate-700">
               New Lot Quantity (MT)
             </label>
             <input
@@ -273,13 +267,13 @@ export function ControlPanel({
               value={addToExistingQuantity}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setAddToExistingQuantity(e.target.value)}
               placeholder="e.g., 500"
-              className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#003B70] focus:border-[#003B70] disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
               disabled={selectedLotIndex === null || isViewer}
             />
           </div>
           <button
             onClick={handleAddToExisting}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-[#003B70] hover:bg-[#002A50] text-white px-4 py-2 rounded-md text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
             disabled={selectedLotIndex === null || isViewer}
           >
             Merge with Selected
@@ -290,29 +284,32 @@ export function ControlPanel({
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-md p-5 border border-slate-200">
-        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <Minus className="w-5 h-5 text-red-600" />
+      <div className="bg-white rounded-md border border-slate-200 p-4 relative overflow-hidden">
+        <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+          <Minus className="w-5 h-5 text-slate-800" />
           Subtract Quantity
         </h3>
-        {selectedLot ? (
-          <div className={`mb-3 p-3 rounded-lg bg-red-50`}>
+
+        {/* Overlay for disabled state */}
+        {!selectedLot && (
+          <div className="absolute inset-0 z-10 backdrop-blur-[2px] bg-slate-50/60 flex items-center justify-center rounded-md border border-transparent">
+            <span className="bg-white text-[#003B70] font-semibold text-sm px-4 py-2 rounded-full shadow-md border border-slate-200">Select an entry from the table first</span>
+          </div>
+        )}
+
+        {selectedLot && (
+          <div className={`mb-3 p-3 rounded-md border font-medium ${PILE_THEMES[selectedPileNumber]?.bgSoft} ${PILE_THEMES[selectedPileNumber]?.borderLight} ${PILE_THEMES[selectedPileNumber]?.text}`}>
             <div className="flex items-center gap-2 mb-1">
-              <span className={`w-3 h-3 rounded-full ${pileColors.dot}`} />
-              <span className={`font-bold ${pileColors.text}`}>{selectedLotLabel}</span>
+              <span className="font-bold">{selectedLotLabel}</span>
             </div>
-            <span className="text-sm text-red-700">
+            <span className="text-sm">
               Available: {selectedLot.quantity.toLocaleString()} MT
             </span>
-          </div>
-        ) : (
-          <div className="mb-3 p-2 bg-amber-50 rounded-lg text-sm">
-            <span className="text-amber-700">Select an entry from the table first</span>
           </div>
         )}
         <div className="space-y-3">
           <div>
-            <label htmlFor="subtractQty" className="text-sm text-slate-600">
+            <label htmlFor="subtractQty" className="text-sm font-medium text-slate-700">
               Quantity to Subtract (MT)
             </label>
             <input
@@ -323,13 +320,13 @@ export function ControlPanel({
               value={subtractQuantity}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setSubtractQuantity(e.target.value)}
               placeholder="e.g., 200"
-              className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              className="mt-1 w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#003B70] focus:border-[#003B70] disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
               disabled={selectedLotIndex === null || isViewer}
             />
           </div>
           <button
             onClick={handleSubtract}
-            className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-[#003B70] hover:bg-[#002A50] text-white px-4 py-2 rounded-md text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
             disabled={selectedLotIndex === null || isViewer}
           >
             Subtract from Selected

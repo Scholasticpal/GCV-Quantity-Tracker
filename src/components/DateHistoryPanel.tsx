@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { SavedState } from "../App";
-import { getLotLabel, getPileNumber } from "../utils/lotUtils";
+import { getLotLabel } from "../utils/lotUtils";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, addMonths, subMonths } from "date-fns";
 
 interface DateHistoryPanelProps {
@@ -11,14 +11,7 @@ interface DateHistoryPanelProps {
   role?: string;
 }
 
-const PILE_COLORS: Record<number, { bg: string; text: string; dot: string }> = {
-  1: { bg: "bg-emerald-100", text: "text-emerald-700", dot: "bg-emerald-500" },
-  2: { bg: "bg-blue-100", text: "text-blue-700", dot: "bg-blue-500" },
-  3: { bg: "bg-amber-100", text: "text-amber-700", dot: "bg-amber-500" },
-  4: { bg: "bg-purple-100", text: "text-purple-700", dot: "bg-purple-500" },
-  5: { bg: "bg-rose-100", text: "text-rose-700", dot: "bg-rose-500" },
-  6: { bg: "bg-teal-100", text: "text-teal-700", dot: "bg-teal-500" },
-};
+
 
 export function DateHistoryPanel({
   savedStates,
@@ -58,7 +51,7 @@ export function DateHistoryPanel({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="bg-white rounded-xl shadow-md p-5 border border-slate-200">
+      <div className="bg-white rounded-md shadow-sm p-5 border border-slate-200">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold text-slate-800">Calendar View</h3>
           <div className="flex items-center gap-2">
@@ -109,16 +102,16 @@ export function DateHistoryPanel({
                 onMouseEnter={() => savedState && setPreviewDate(dateStr)}
                 onMouseLeave={() => setPreviewDate(null)}
                 disabled={!savedState}
-                className={`h-10 rounded-lg text-sm font-medium transition-all ${
+                className={`h-10 rounded-sm text-sm transition-all border ${
                   savedState
                     ? isSelected
-                      ? "bg-emerald-600 text-white"
+                      ? "bg-[#003B70] border-[#003B70] text-white font-bold"
                       : isPreview
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      ? "bg-slate-100 border-slate-300 text-slate-800 font-medium"
+                      : "bg-white border-slate-200 text-slate-700 font-medium hover:bg-slate-100"
                     : isToday
-                    ? "bg-slate-100 text-slate-600"
-                    : "text-slate-400"
+                    ? "bg-slate-50 border-slate-200 text-slate-600 font-medium"
+                    : "bg-white border-transparent text-slate-400"
                 }`}
               >
                 {format(day, "d")}
@@ -136,10 +129,10 @@ export function DateHistoryPanel({
               savedStates.map((state) => (
                 <div
                   key={state.date}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-sm border ${
                     selectedDate === state.date
-                      ? "bg-emerald-100 text-emerald-700"
-                      : "bg-slate-100 text-slate-600"
+                      ? "bg-[#003B70] text-white border-[#003B70]"
+                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 font-medium"
                   }`}
                 >
                   <span className="text-sm font-medium">{state.date}</span>
@@ -158,25 +151,25 @@ export function DateHistoryPanel({
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-md p-5 border border-slate-200">
+      <div className="bg-white rounded-md shadow-sm p-5 border border-slate-200">
         <h3 className="text-lg font-bold text-slate-800 mb-4">
           {previewState ? `Data for ${previewDate}` : "Preview"}
         </h3>
         {previewState ? (
           <div className="space-y-2 max-h-96 overflow-y-auto">
             <div className="grid grid-cols-2 gap-2 mb-4">
-              <div className="bg-emerald-50 rounded-lg p-3">
-                <p className="text-xs text-slate-500">Total Quantity</p>
-                <p className="text-lg font-bold text-emerald-700">
+              <div className="bg-white border border-slate-200 rounded-sm p-3 shadow-sm">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Quantity</p>
+                <p className="text-lg font-bold text-slate-900">
                   {previewState.lots
                     .reduce((sum, lot) => sum + lot.quantity, 0)
                     .toLocaleString()}{" "}
                   MT
                 </p>
               </div>
-              <div className="bg-blue-50 rounded-lg p-3">
-                <p className="text-xs text-slate-500">Avg GCV</p>
-                <p className="text-lg font-bold text-blue-700">
+              <div className="bg-white border border-slate-200 rounded-sm p-3 shadow-sm">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Avg GCV</p>
+                <p className="text-lg font-bold text-slate-900">
                   {(() => {
                     const lotsWithQty = previewState.lots.filter(
                       (lot) => lot.quantity > 0
@@ -208,14 +201,11 @@ export function DateHistoryPanel({
                 {previewState.lots
                   .filter((lot) => lot.quantity > 0)
                   .map((lot) => {
-                    const pileNumber = getPileNumber(lot.id);
-                    const colors = PILE_COLORS[pileNumber] || PILE_COLORS[1];
                     return (
                       <tr key={lot.id} className="border-b border-slate-100">
                         <td className="px-3 py-2">
                           <div className="flex items-center gap-2">
-                            <span className={`w-2 h-2 rounded-full ${colors.dot}`} />
-                            <span className={`font-medium ${colors.text}`}>
+                            <span className="font-medium text-[#003B70]">
                               {getLotLabel(lot.id)}
                             </span>
                           </div>

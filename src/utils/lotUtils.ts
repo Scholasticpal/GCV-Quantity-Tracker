@@ -177,3 +177,12 @@ export function calculatePileStats(lots: Lot[]) {
   
   return pileStats;
 }
+
+export const PILE_THEMES: Record<number, { text: string; bg: string; border: string; borderLight: string; bgSoft: string; hoverBgSoft: string; groupHoverBgSoft: string; borderLeft: string }> = {
+  1: { text: "text-emerald-700", bg: "bg-emerald-100", border: "border-emerald-500", borderLight: "border-emerald-200", bgSoft: "bg-emerald-50", hoverBgSoft: "hover:bg-emerald-50", groupHoverBgSoft: "group-hover:bg-emerald-50", borderLeft: "border-l-emerald-500" },
+  2: { text: "text-indigo-700", bg: "bg-indigo-100", border: "border-indigo-500", borderLight: "border-indigo-200", bgSoft: "bg-indigo-50", hoverBgSoft: "hover:bg-indigo-50", groupHoverBgSoft: "group-hover:bg-indigo-50", borderLeft: "border-l-indigo-500" },
+  3: { text: "text-amber-700", bg: "bg-amber-100", border: "border-amber-500", borderLight: "border-amber-200", bgSoft: "bg-amber-50", hoverBgSoft: "hover:bg-amber-50", groupHoverBgSoft: "group-hover:bg-amber-50", borderLeft: "border-l-amber-500" },
+  4: { text: "text-purple-700", bg: "bg-purple-100", border: "border-purple-500", borderLight: "border-purple-200", bgSoft: "bg-purple-50", hoverBgSoft: "hover:bg-purple-50", groupHoverBgSoft: "group-hover:bg-purple-50", borderLeft: "border-l-purple-500" },
+  5: { text: "text-rose-700", bg: "bg-rose-100", border: "border-rose-500", borderLight: "border-rose-200", bgSoft: "bg-rose-50", hoverBgSoft: "hover:bg-rose-50", groupHoverBgSoft: "group-hover:bg-rose-50", borderLeft: "border-l-rose-500" },
+  6: { text: "text-sky-700", bg: "bg-sky-100", border: "border-sky-500", borderLight: "border-sky-200", bgSoft: "bg-sky-50", hoverBgSoft: "hover:bg-sky-50", groupHoverBgSoft: "group-hover:bg-sky-50", borderLeft: "border-l-sky-500" },
+};

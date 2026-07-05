@@ -31,7 +31,7 @@ export function Summary({ lots }: SummaryProps) {
 
       <div className="bg-white rounded-xl shadow-md p-5 border border-slate-200">
         <p className="text-sm text-slate-500 mb-1">Total Quantity</p>
-        <p className="text-3xl font-bold text-emerald-600">
+        <p className="text-3xl font-bold text-[#003B70]">
           {totalQuantity.toLocaleString()}
         </p>
         <p className="text-xs text-slate-400 mt-1">MT</p>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Lot } from "../types/lot";
-import { getLotLabel, getPileNumber, getSubLabel } from "../utils/lotUtils";
+import { getLotLabel, getPileNumber, getSubLabel, PILE_THEMES } from "../utils/lotUtils";
 import { MousePointerClick, Pencil, Trash2, Check, X } from "lucide-react";
 
 const MAX_VALUE = 1000000;
@@ -62,70 +62,6 @@ function TruncatedCell({
 }
 
 // ─── Pile color config (name column + dot only) ─────────────────
-const PILE_COLORS: Record<
-  number,
-  {
-    subColors: Record<
-      string,
-      { bg: string; text: string; dot: string; border: string }
-    >;
-  }
-> = {
-  1: {
-    subColors: {
-      A: { bg: "bg-emerald-100", text: "text-emerald-800", dot: "bg-emerald-500", border: "border-l-emerald-400" },
-      B: { bg: "bg-emerald-200", text: "text-emerald-900", dot: "bg-emerald-600", border: "border-l-emerald-500" },
-      C: { bg: "bg-emerald-300", text: "text-emerald-900", dot: "bg-emerald-700", border: "border-l-emerald-600" },
-      D: { bg: "bg-emerald-400", text: "text-emerald-950", dot: "bg-emerald-800", border: "border-l-emerald-700" },
-      E: { bg: "bg-emerald-500", text: "text-white",       dot: "bg-emerald-900", border: "border-l-emerald-800" },
-    },
-  },
-  2: {
-    subColors: {
-      A: { bg: "bg-blue-100", text: "text-blue-800", dot: "bg-blue-500", border: "border-l-blue-400" },
-      B: { bg: "bg-blue-200", text: "text-blue-900", dot: "bg-blue-600", border: "border-l-blue-500" },
-      C: { bg: "bg-blue-300", text: "text-blue-900", dot: "bg-blue-700", border: "border-l-blue-600" },
-      D: { bg: "bg-blue-400", text: "text-blue-950", dot: "bg-blue-800", border: "border-l-blue-700" },
-      E: { bg: "bg-blue-500", text: "text-white",    dot: "bg-blue-900", border: "border-l-blue-800" },
-    },
-  },
-  3: {
-    subColors: {
-      A: { bg: "bg-amber-100", text: "text-amber-800", dot: "bg-amber-500", border: "border-l-amber-400" },
-      B: { bg: "bg-amber-200", text: "text-amber-900", dot: "bg-amber-600", border: "border-l-amber-500" },
-      C: { bg: "bg-amber-300", text: "text-amber-900", dot: "bg-amber-700", border: "border-l-amber-600" },
-      D: { bg: "bg-amber-400", text: "text-amber-950", dot: "bg-amber-800", border: "border-l-amber-700" },
-      E: { bg: "bg-amber-500", text: "text-white",     dot: "bg-amber-900", border: "border-l-amber-800" },
-    },
-  },
-  4: {
-    subColors: {
-      A: { bg: "bg-purple-100", text: "text-purple-800", dot: "bg-purple-500", border: "border-l-purple-400" },
-      B: { bg: "bg-purple-200", text: "text-purple-900", dot: "bg-purple-600", border: "border-l-purple-500" },
-      C: { bg: "bg-purple-300", text: "text-purple-900", dot: "bg-purple-700", border: "border-l-purple-600" },
-      D: { bg: "bg-purple-400", text: "text-purple-950", dot: "bg-purple-800", border: "border-l-purple-700" },
-      E: { bg: "bg-purple-500", text: "text-white",      dot: "bg-purple-900", border: "border-l-purple-800" },
-    },
-  },
-  5: {
-    subColors: {
-      A: { bg: "bg-rose-100", text: "text-rose-800", dot: "bg-rose-500", border: "border-l-rose-400" },
-      B: { bg: "bg-rose-200", text: "text-rose-900", dot: "bg-rose-600", border: "border-l-rose-500" },
-      C: { bg: "bg-rose-300", text: "text-rose-900", dot: "bg-rose-700", border: "border-l-rose-600" },
-      D: { bg: "bg-rose-400", text: "text-rose-950", dot: "bg-rose-800", border: "border-l-rose-700" },
-      E: { bg: "bg-rose-500", text: "text-white",    dot: "bg-rose-900", border: "border-l-rose-800" },
-    },
-  },
-  6: {
-    subColors: {
-      A: { bg: "bg-teal-100", text: "text-teal-800", dot: "bg-teal-500", border: "border-l-teal-400" },
-      B: { bg: "bg-teal-200", text: "text-teal-900", dot: "bg-teal-600", border: "border-l-teal-500" },
-      C: { bg: "bg-teal-300", text: "text-teal-900", dot: "bg-teal-700", border: "border-l-teal-600" },
-      D: { bg: "bg-teal-400", text: "text-teal-950", dot: "bg-teal-800", border: "border-l-teal-700" },
-      E: { bg: "bg-teal-500", text: "text-white",    dot: "bg-teal-900", border: "border-l-teal-800" },
-    },
-  },
-};
 
 export function SpreadsheetTable({
   lots,
@@ -146,6 +82,7 @@ export function SpreadsheetTable({
   });
 
   const isSuperadmin = role === "superadmin";
+  const isAdmin = role === "admin" || isSuperadmin;
 
   const startEditing = (lot: Lot) => {
     setEditingRowId(lot.id);
@@ -239,33 +176,33 @@ export function SpreadsheetTable({
       <div className="overflow-x-auto">
         <table className="w-full min-w-max">
           <thead>
-            <tr className="bg-slate-800 text-white">
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky left-0 z-10 bg-slate-800 shadow-[2px_0_5px_rgba(0,0,0,0.1)] w-14">
+            <tr className="bg-[#003B70] text-white">
+              <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider sticky left-0 z-20 bg-[#003B70] shadow-[1px_0_0_0_#e2e8f0] w-14">
                 S.No
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky left-14 z-10 bg-slate-800 shadow-[2px_0_5px_rgba(0,0,0,0.1)]">
+              <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider sticky left-[56px] z-20 bg-[#003B70] shadow-[1px_0_0_0_#e2e8f0]">
                 Name
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+              <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">
                 GCV (kcal/kg)
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+              <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">
                 Quantity (MT)
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+              <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">
                 Original GCV
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+              <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider">
                 Original Qty
               </th>
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">
+              <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider">
                 Lots Added
               </th>
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">
+              <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider">
                 Deductions
               </th>
-              {isSuperadmin && (
-                <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider">
+              {isAdmin && (
+                <th className="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wider">
                   Action
                 </th>
               )}
@@ -278,59 +215,47 @@ export function SpreadsheetTable({
               const pileNumber = getPileNumber(lot.id);
               const subLabel = getSubLabel(lot.id);
               const lotLabel = getLotLabel(lot.id);
-              const pileColors = PILE_COLORS[pileNumber];
-              const subColor = pileColors?.subColors[subLabel] || PILE_COLORS[1].subColors.A;
               const isEditing = editingRowId === lot.id;
-              const isOddRow = idx % 2 === 1;
-
-              // Data columns use clean white/slate alternating rows
-              const dataRowBg = isSelected
-                ? "bg-amber-50"
-                : isOddRow
-                ? "bg-slate-50"
-                : "bg-white";
-
-              // Name column carries the pile color indicator
-              const nameColBg = isSelected
-                ? "bg-amber-100"
-                : hasData
-                ? subColor.bg
-                : isOddRow
-                ? "bg-slate-50"
-                : "bg-white";
-
-              // Left border color indicator for the row
-              const leftBorder = isSelected
-                ? "border-l-4 border-l-amber-500"
-                : hasData
-                ? `border-l-4 ${subColor.border}`
-                : "border-l-4 border-l-transparent";
-
-              // Pile partition: thicker border on the last sub-label (E) of each pile
-              const isPileLastRow = (idx + 1) % 5 === 0;
-              const bottomBorder = isPileLastRow
-                ? "border-b-2 border-b-slate-400"
-                : "border-b border-b-slate-200";
+              
+              const isLastInPile = subLabel === "E";
+              const borderClass = isLastInPile ? "border-b-2 border-[#003B70]/30" : "border-b border-slate-200";
+              
+              const pileTheme = PILE_THEMES[pileNumber] || PILE_THEMES[1];
+              
+              let rowVisualClass = "";
+              if (isSelected) {
+                rowVisualClass = `${pileTheme.bg} border-l-4 ${pileTheme.border} ${pileTheme.text} font-medium`;
+              } else if (hasData) {
+                rowVisualClass = `text-slate-900 font-medium bg-white ${pileTheme.hoverBgSoft} border-l-4 ${pileTheme.borderLeft}`;
+              } else {
+                rowVisualClass = `text-slate-400 bg-slate-50/20 ${pileTheme.hoverBgSoft} border-l-4 border-transparent hover:${pileTheme.borderLeft}`;
+              }
 
               return (
                 <tr
                   key={lot.id}
-                  className={`transition-colors ${dataRowBg} ${leftBorder} ${bottomBorder}`}
+                  className={`group transition-colors ${borderClass} ${rowVisualClass}`}
                 >
-                  {/* Name column — sticky, colored */}
-                  <td
-                    className={`px-4 py-2.5 sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.05)] ${nameColBg}`}
-                  >
-                    <div className="flex items-center gap-2 whitespace-nowrap">
-                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${subColor.dot}`} />
-                      <span className={`font-bold text-sm ${hasData ? subColor.text : "text-slate-400"}`}>
+                  {/* S.No column — sticky */}
+                  <td className={`px-3 py-2 sticky left-0 z-20 bg-white shadow-[1px_0_0_0_#e2e8f0] text-sm group-hover:bg-slate-50 transition-colors ${
+                    isSelected ? pileTheme.bg : hasData ? `bg-white ${pileTheme.groupHoverBgSoft}` : 'bg-slate-50/20 group-hover:bg-slate-50/80'
+                  }`}>
+                    <span className="font-medium opacity-80">{lot.id}</span>
+                  </td>
+
+                  {/* Name column — sticky */}
+                  <td className={`px-3 py-2 sticky left-[56px] z-20 bg-white shadow-[1px_0_0_0_#e2e8f0] group-hover:bg-slate-50 transition-colors ${
+                    isSelected ? pileTheme.bg : hasData ? `bg-white ${pileTheme.groupHoverBgSoft}` : 'bg-slate-50/20 group-hover:bg-slate-50/80'
+                  }`}>
+                    <div className="flex items-center whitespace-nowrap">
+                      <span className="text-sm font-semibold">
                         {lotLabel}
                       </span>
                     </div>
                   </td>
 
                   {/* GCV */}
-                  <td className="px-4 py-2.5">
+                  <td className="px-3 py-2">
                     {isEditing ? (
                       <input
                         type="number"
@@ -343,15 +268,13 @@ export function SpreadsheetTable({
                     ) : (
                       <TruncatedCell
                         value={lot.gcv}
-                        className={`font-mono text-sm ${
-                          hasData ? "text-slate-800 font-semibold" : "text-slate-400"
-                        }`}
+                        className="font-mono text-sm"
                       />
                     )}
                   </td>
 
                   {/* Quantity */}
-                  <td className="px-4 py-2.5">
+                  <td className="px-3 py-2">
                     {isEditing ? (
                       <input
                         type="number"
@@ -364,15 +287,13 @@ export function SpreadsheetTable({
                     ) : (
                       <TruncatedCell
                         value={lot.quantity}
-                        className={`font-mono text-sm ${
-                          hasData ? "text-slate-800 font-semibold" : "text-slate-400"
-                        }`}
+                        className="font-mono text-sm"
                       />
                     )}
                   </td>
 
                   {/* Original GCV */}
-                  <td className="px-4 py-2.5">
+                  <td className="px-3 py-2">
                     {isEditing ? (
                       <input
                         type="number"
@@ -385,13 +306,13 @@ export function SpreadsheetTable({
                     ) : (
                       <TruncatedCell
                         value={lot.originalGcv}
-                        className="font-mono text-sm text-slate-500"
+                        className="font-mono text-sm opacity-80"
                       />
                     )}
                   </td>
 
                   {/* Original Quantity */}
-                  <td className="px-4 py-2.5">
+                  <td className="px-3 py-2">
                     {isEditing ? (
                       <input
                         type="number"
@@ -404,13 +325,13 @@ export function SpreadsheetTable({
                     ) : (
                       <TruncatedCell
                         value={lot.originalQuantity}
-                        className="font-mono text-sm text-slate-500"
+                        className="font-mono text-sm opacity-80"
                       />
                     )}
                   </td>
 
                   {/* Lots Added */}
-                  <td className="px-4 py-2.5 text-center">
+                  <td className="px-3 py-2 text-center">
                     {isEditing ? (
                       <input
                         type="number"
@@ -422,10 +343,10 @@ export function SpreadsheetTable({
                       />
                     ) : (
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        className={`inline-flex items-center px-2 py-0.5 text-xs ${
                           lot.lotsAdded > 0
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-slate-100 text-slate-500"
+                            ? "text-[#003B70] font-bold"
+                            : "text-slate-400 font-medium"
                         }`}
                       >
                         {lot.lotsAdded}
@@ -434,7 +355,7 @@ export function SpreadsheetTable({
                   </td>
 
                   {/* Deductions */}
-                  <td className="px-4 py-2.5 text-center">
+                  <td className="px-3 py-2 text-center">
                     {isEditing ? (
                       <input
                         type="number"
@@ -446,10 +367,10 @@ export function SpreadsheetTable({
                       />
                     ) : (
                       <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        className={`inline-flex items-center px-2 py-0.5 text-xs ${
                           lot.lotsSubtracted > 0
-                            ? "bg-red-100 text-red-800"
-                            : "bg-slate-100 text-slate-500"
+                            ? "text-red-600 font-bold"
+                            : "text-slate-400 font-medium"
                         }`}
                       >
                         {lot.lotsSubtracted}
@@ -457,14 +378,14 @@ export function SpreadsheetTable({
                     )}
                   </td>
 
-                  {/* Actions — superadmin only */}
-                  {isSuperadmin && (
-                    <td className="px-4 py-2.5 text-center">
-                      {isEditing ? (
+                  {/* Actions — admin/superadmin */}
+                  {isAdmin && (
+                    <td className="px-3 py-2 text-center">
+                      {isEditing && isSuperadmin ? (
                         <div className="flex items-center justify-center gap-1">
                           <button
                             onClick={saveEditing}
-                            className="p-2 rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                            className="p-2 rounded-md bg-[#003B70] text-white hover:bg-[#002A50] transition-colors"
                             title="Save changes"
                           >
                             <Check className="w-4 h-4" />
@@ -492,23 +413,29 @@ export function SpreadsheetTable({
                             <MousePointerClick className="w-4 h-4" />
                           </button>
 
-                          {/* Edit */}
-                          <button
-                            onClick={() => startEditing(lot)}
-                            className="p-2 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
-                            title="Edit row"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
+                          {/* Edit (Superadmin only) */}
+                          {isSuperadmin && (
+                            <button
+                              onClick={() => startEditing(lot)}
+                              disabled={!hasData}
+                              className={`p-2 rounded-lg transition-colors ${!hasData ? "opacity-30 cursor-not-allowed bg-transparent text-slate-400" : "bg-amber-50 text-amber-600 hover:bg-amber-100"}`}
+                              title={!hasData ? "Use Data Entry tools above to add initial data" : "Edit row"}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                          )}
 
-                          {/* Delete (reset to zero) */}
-                          <button
-                            onClick={() => handleResetRow(lot.id)}
-                            className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
-                            title="Delete row data"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {/* Delete (reset to zero) (Superadmin only) */}
+                          {isSuperadmin && (
+                            <button
+                              onClick={() => handleResetRow(lot.id)}
+                              disabled={!hasData}
+                              className={`p-2 rounded-lg transition-colors ${!hasData ? "opacity-30 cursor-not-allowed bg-transparent text-slate-400" : "bg-red-50 text-red-500 hover:bg-red-100"}`}
+                              title={!hasData ? "Use Data Entry tools above to add initial data" : "Delete row data"}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       )}
                     </td>

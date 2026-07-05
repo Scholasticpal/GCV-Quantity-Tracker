@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { PILE_THEMES } from "../utils/lotUtils";
 
 // ─── Types ───────────────────────────────────────────────────
 interface UserRecord {
@@ -118,28 +119,26 @@ function getRoleDisplayName(role: string): string {
 function getLogCategoryBadgeClasses(category: string): string {
   switch (category?.toUpperCase()) {
     case "AUTH":
-      return "bg-blue-100 text-blue-700 border-blue-200";
+      return "bg-amber-100 text-amber-800 border-amber-200";
     case "DATA_ENTRY":
-      return "bg-purple-100 text-purple-700 border-purple-200";
+      return "bg-emerald-100 text-emerald-800 border-emerald-200";
     case "ADMIN_ACTION":
-      return "bg-amber-100 text-amber-700 border-amber-200";
+      return "bg-rose-100 text-rose-800 border-rose-200";
     case "SYSTEM":
-      return "bg-emerald-100 text-emerald-700 border-emerald-200";
+      return "bg-slate-100 text-slate-800 border-slate-200";
     default:
       return "bg-slate-100 text-slate-600 border-slate-200";
   }
 }
 
-function getPileColor(pileName: string | undefined): string {
-  if (!pileName) return "text-slate-600";
-  const name = pileName.toUpperCase();
-  if (name.includes("1")) return "text-emerald-600";
-  if (name.includes("2")) return "text-blue-600";
-  if (name.includes("3")) return "text-amber-600";
-  if (name.includes("4")) return "text-purple-600";
-  if (name.includes("5")) return "text-rose-600";
-  if (name.includes("6")) return "text-cyan-600";
-  return "text-slate-700";
+function getPileColor(name: string) {
+  if (!name) return "text-slate-600";
+  const match = name.match(/Pile\s*(\d)/i);
+  if (match) {
+    const p = parseInt(match[1], 10);
+    return PILE_THEMES[p]?.text || "text-[#003B70]";
+  }
+  return "text-[#003B70]";
 }
 
 const LOGS_PER_PAGE = 25;
@@ -294,7 +293,7 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
     // Current user is superadmin
     if (isSuperadmin) {
       return (
-        <div className="flex items-center justify-end gap-2 flex-wrap">
+        <div className="flex items-center justify-end gap-2 flex-nowrap whitespace-nowrap">
           {user.role === "admin" && (
             <button
               onClick={() => {
@@ -302,7 +301,7 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                   handleChangeRole(user.email, "viewer");
                 }
               }}
-              className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
+              className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer text-slate-600 bg-slate-100 hover:bg-slate-200 border-slate-300"
             >
               Dismiss as Admin
             </button>
@@ -314,14 +313,14 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                   handleChangeRole(user.email, "admin");
                 }
               }}
-              className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+              className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer text-[#003B70] bg-blue-50 hover:bg-blue-100 border-blue-200"
             >
               Make Admin
             </button>
           )}
           <button
             onClick={() => handleBanUser(user.email)}
-            className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+            className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer text-red-700 bg-red-50 hover:bg-red-100 border-red-200"
             title="Ban user"
           >
             <Ban className="w-3 h-3" />
@@ -335,20 +334,20 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
     if (currentRole === "admin") {
       if (user.role === "viewer") {
         return (
-          <div className="flex items-center justify-end gap-2 flex-wrap">
+          <div className="flex items-center justify-end gap-2 flex-nowrap whitespace-nowrap">
             <button
               onClick={() => {
                 if (window.confirm("Are you sure you want to make this user as admin?")) {
                   handleChangeRole(user.email, "admin");
                 }
               }}
-              className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+              className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer text-[#003B70] bg-blue-50 hover:bg-blue-100 border-blue-200"
             >
               Make Admin
             </button>
             <button
               onClick={() => handleBanUser(user.email)}
-              className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
+              className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer text-red-700 bg-red-50 hover:bg-red-100 border-red-200"
               title="Ban user"
             >
               <Ban className="w-3 h-3" />
@@ -408,7 +407,7 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
       <div className="px-5 py-6 border-b border-slate-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <ShieldCheck className="w-5 h-5 text-emerald-600" />
+            <ShieldCheck className="w-5 h-5 text-[#003B70]" />
             <h2 className="text-base font-bold text-slate-800 tracking-tight">Admin Panel</h2>
           </div>
           <button
@@ -433,7 +432,7 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
           }}
           className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border cursor-pointer ${
             activeTab === "users"
-              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+              ? "bg-[#003B70] text-white border-[#003B70]"
               : "text-slate-600 hover:bg-slate-100 border-transparent"
           }`}
         >
@@ -447,7 +446,7 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
           }}
           className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border cursor-pointer ${
             activeTab === "logs"
-              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+              ? "bg-[#003B70] text-white border-[#003B70]"
               : "text-slate-600 hover:bg-slate-100 border-transparent"
           }`}
         >
@@ -517,7 +516,7 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
             <>
               {/* Page Header */}
               <div className="flex items-center gap-2.5 mb-6">
-                <Users className="w-5 h-5 text-emerald-600" />
+                <Users className="w-5 h-5 text-[#003B70]" />
                 <h2 className="text-lg font-bold text-slate-800">Users List</h2>
                 <span className="ml-1 text-xs text-slate-400 font-medium">
                   ({activeUsers.length} active)
@@ -535,7 +534,7 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
               {/* Loading State */}
               {loading ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-3">
-                  <div className="w-7 h-7 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+                  <div className="border-4 border-slate-200 border-t-[#003B70] rounded-full w-8 h-8 animate-spin" />
                   <span className="text-sm text-slate-500">Loading users…</span>
                 </div>
               ) : activeUsers.length === 0 ? (
@@ -547,51 +546,50 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                 <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200">
-                        <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider w-14">
+                      <tr className="bg-[#003B70] text-white">
+                        <th className="text-left px-4 py-3 font-semibold text-white text-xs uppercase tracking-wider w-16">
                           S.No
                         </th>
-                        <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
+                        <th className="text-left px-4 py-3 font-semibold text-white text-xs uppercase tracking-wider w-auto">
                           Email ID
                         </th>
-                        <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
+                        <th className="text-left px-4 py-3 font-semibold text-white text-xs uppercase tracking-wider w-1/5">
                           Role
                         </th>
-                        <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider hidden md:table-cell">
+                        <th className="text-left px-4 py-3 font-semibold text-white text-xs uppercase tracking-wider w-1/5">
                           Last Active
                         </th>
-                        <th className="text-right px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
+                        <th className="text-right px-4 py-3 font-semibold text-white text-xs uppercase tracking-wider w-1/5">
                           Actions
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       {activeUsers.map((user, idx) => (
-                        <tr
-                          key={user.email}
-                          className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors"
-                        >
+                        <tr key={user.email} className="border-b border-slate-100 last:border-b-0 even:bg-slate-50 hover:bg-blue-50/30 transition-colors">
                           {/* S.No */}
                           <td className="px-4 py-3 text-slate-400 font-mono text-xs">
                             {idx + 1}
                           </td>
 
                           {/* Email ID */}
-                          <td className="px-4 py-3">
-                            <span className="text-slate-800 font-medium">{user.email}</span>
+                          <td className="px-4 py-2.5">
+                            <span className="text-slate-800 font-medium truncate max-w-[140px] sm:max-w-[200px] lg:max-w-none lg:overflow-visible lg:whitespace-normal break-all block transition-all" title={user.email}>
+                              {user.email}
+                            </span>
                           </td>
 
                           {/* Role */}
                           <td className="px-4 py-3">
                             <span
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getRoleBadgeClasses(user.role)}`}
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${getRoleBadgeClasses(user.role)}`}
                             >
                               {getRoleDisplayName(user.role)}
                             </span>
                           </td>
 
                           {/* Last Active */}
-                          <td className="px-4 py-3 text-slate-500 text-xs hidden md:table-cell">
+                          <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
                             {formatLastActive(user.last_active_at)}
                           </td>
 
@@ -617,41 +615,38 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                     </span>
                   </div>
 
-                  <div className="overflow-x-auto rounded-xl border border-red-200 bg-white shadow-sm">
+                  <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="bg-red-50/50 border-b border-red-200">
-                          <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider w-14">
+                        <tr className="bg-[#003B70] text-white">
+                          <th className="text-left px-4 py-3 font-semibold text-white text-xs uppercase tracking-wider w-16">
                             S.No
                           </th>
-                          <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
+                          <th className="text-left px-4 py-3 font-semibold text-white text-xs uppercase tracking-wider w-auto">
                             Email ID
                           </th>
-                          <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
+                          <th className="text-left px-4 py-3 font-semibold text-white text-xs uppercase tracking-wider w-1/5">
                             Role
                           </th>
-                          <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider hidden md:table-cell">
+                          <th className="text-left px-4 py-3 font-semibold text-white text-xs uppercase tracking-wider w-1/5">
                             Last Active
                           </th>
-                          <th className="text-right px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
+                          <th className="text-right px-4 py-3 font-semibold text-white text-xs uppercase tracking-wider w-1/5">
                             Actions
                           </th>
                         </tr>
                       </thead>
                       <tbody>
                         {bannedUsers.map((user, idx) => (
-                          <tr
-                            key={user.email}
-                            className="border-b border-red-100 last:border-b-0 hover:bg-red-50/30 transition-colors"
-                          >
+                          <tr key={user.email} className="border-b border-red-100 last:border-b-0 even:bg-slate-50 hover:bg-blue-50/30 transition-colors">
                             {/* S.No */}
                             <td className="px-4 py-3 text-slate-400 font-mono text-xs">
                               {idx + 1}
                             </td>
 
                             {/* Email ID */}
-                            <td className="px-4 py-3">
-                              <span className="text-slate-800 font-medium line-through decoration-red-300">
+                            <td className="px-4 py-2.5">
+                              <span className="text-slate-800 font-medium line-through decoration-red-300 truncate max-w-[140px] sm:max-w-[200px] lg:max-w-none lg:overflow-visible lg:whitespace-normal break-all block transition-all" title={user.email}>
                                 {user.email}
                               </span>
                             </td>
@@ -659,28 +654,28 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                             {/* Role */}
                             <td className="px-4 py-3">
                               <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getRoleBadgeClasses(user.role)}`}
+                                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${getRoleBadgeClasses(user.role)}`}
                               >
                                 {getRoleDisplayName(user.role)}
                               </span>
                             </td>
 
                             {/* Last Active */}
-                            <td className="px-4 py-3 text-slate-500 text-xs hidden md:table-cell">
+                            <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
                               {formatLastActive(user.last_active_at)}
                             </td>
 
                             {/* Actions */}
                             <td className="px-4 py-3 text-right">
                               {actionLoading === user.email ? (
-                                <div className="inline-flex items-center gap-1.5 text-slate-400 text-xs">
+                                <div className="inline-flex items-center justify-end gap-1.5 text-slate-400 text-xs">
                                   <div className="w-3.5 h-3.5 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
                                   Updating…
                                 </div>
                               ) : isSuperadmin ? (
                                 <button
                                   onClick={() => handleUnbanUser(user.email)}
-                                  className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                  className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer bg-slate-50 text-[#003B70] hover:bg-slate-100 border-slate-300"
                                 >
                                   <ShieldOff className="w-3 h-3" />
                                   Unban
@@ -705,13 +700,13 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
               {/* Page Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div className="flex items-center gap-2.5">
-                  <Activity className="w-5 h-5 text-emerald-600" />
+                  <Activity className="w-5 h-5 text-[#003B70]" />
                   <h2 className="text-lg font-bold text-slate-800">System Logs</h2>
                 </div>
                 {isSuperadmin && (
                   <button
                     onClick={handleClearLogs}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 hover:border-red-300 transition-colors cursor-pointer"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700 transition-colors cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                     Clear Logs (Dev)
@@ -726,25 +721,25 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search logs (e.g. 'Pile 1' OR 'Auth')..."
-                  className="flex-1 w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow"
+                  className="flex-1 w-full bg-white border border-slate-300 text-slate-800 rounded-md focus:outline-none focus:border-[#003B70] focus:ring-1 focus:ring-[#003B70] px-3 py-2 transition-shadow text-sm"
                 />
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 text-sm text-slate-500 bg-white border border-slate-300 rounded-lg px-3 py-1 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-shadow w-full lg:w-auto">
-                    <span>From</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-slate-700">From</span>
                     <input
                       type="date"
                       value={dateFrom}
                       onChange={(e) => setDateFrom(e.target.value)}
-                      className="bg-transparent border-none focus:outline-none text-slate-700 cursor-pointer"
+                      className="min-w-[140px] px-3 py-1.5 bg-white border border-slate-300 rounded-md text-sm text-slate-700 focus:outline-none focus:border-[#003B70] focus:ring-1 focus:ring-[#003B70] leading-normal"
                     />
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-500 bg-white border border-slate-300 rounded-lg px-3 py-1 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-shadow w-full lg:w-auto">
-                    <span>To</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-slate-700">To</span>
                     <input
                       type="date"
                       value={dateTo}
                       onChange={(e) => setDateTo(e.target.value)}
-                      className="bg-transparent border-none focus:outline-none text-slate-700 cursor-pointer"
+                      className="min-w-[140px] px-3 py-1.5 bg-white border border-slate-300 rounded-md text-sm text-slate-700 focus:outline-none focus:border-[#003B70] focus:ring-1 focus:ring-[#003B70] leading-normal"
                     />
                   </div>
                 </div>
@@ -754,23 +749,23 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
               <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider w-14">
+                    <tr className="bg-[#003B70] text-white">
+                      <th className="text-left px-4 py-3 font-semibold text-white text-xs uppercase tracking-wider w-14">
                         S.No
                       </th>
-                      <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider w-40">
+                      <th className="text-left px-4 py-3 font-semibold text-white text-xs uppercase tracking-wider w-40">
                         Timestamp
                       </th>
-                      <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider w-48">
+                      <th className="text-left px-4 py-3 font-semibold text-white text-xs uppercase tracking-wider w-48">
                         User
                       </th>
-                      <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider w-36">
+                      <th className="text-left px-4 py-3 font-semibold text-white text-xs uppercase tracking-wider w-36">
                         Category
                       </th>
-                      <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider w-36">
+                      <th className="text-left px-4 py-3 font-semibold text-white text-xs uppercase tracking-wider w-36">
                         Action
                       </th>
-                      <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
+                      <th className="text-left px-4 py-3 font-semibold text-white text-xs uppercase tracking-wider">
                         Details
                       </th>
                     </tr>
@@ -778,7 +773,7 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                   <tbody>
                     {paginatedLogs.length > 0 ? (
                       paginatedLogs.map((log, idx) => (
-                        <tr key={log.id} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors">
+                        <tr key={log.id} className="border-b border-slate-100 last:border-b-0 even:bg-slate-50 hover:bg-blue-50/30 transition-colors">
                           <td className="px-4 py-3 text-slate-400 font-mono text-xs">
                             {(logPage - 1) * LOGS_PER_PAGE + idx + 1}
                           </td>
@@ -788,13 +783,13 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                               hour: '2-digit', minute: '2-digit'
                             })}
                           </td>
-                          <td className="px-4 py-3">
-                            <span className="text-slate-800 font-medium truncate max-w-[180px] block" title={log.user_email}>
+                          <td className="px-4 py-2.5">
+                            <span className="text-slate-800 font-medium truncate max-w-[120px] md:max-w-[180px] hover:max-w-none hover:whitespace-normal hover:break-all block transition-all" title={log.user_email}>
                               {log.user_email}
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold tracking-wider border ${getLogCategoryBadgeClasses(log.action_category)}`}>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${getLogCategoryBadgeClasses(log.action_category)}`}>
                               {log.action_category}
                             </span>
                           </td>
@@ -836,7 +831,7 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                     <button
                       onClick={() => setLogPage(p => Math.max(1, p - 1))}
                       disabled={logPage === 1}
-                      className="inline-flex items-center justify-center p-1.5 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      className="inline-flex items-center justify-center bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 rounded-md px-3 py-1 transition-colors disabled:cursor-not-allowed cursor-pointer"
                       aria-label="Previous page"
                     >
                       <ChevronLeft className="w-5 h-5" />
@@ -844,7 +839,7 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                     <button
                       onClick={() => setLogPage(p => Math.min(totalPages, p + 1))}
                       disabled={logPage === totalPages}
-                      className="inline-flex items-center justify-center p-1.5 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      className="inline-flex items-center justify-center bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 rounded-md px-3 py-1 transition-colors disabled:cursor-not-allowed cursor-pointer"
                       aria-label="Next page"
                     >
                       <ChevronRight className="w-5 h-5" />
