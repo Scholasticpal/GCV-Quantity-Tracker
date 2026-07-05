@@ -166,6 +166,8 @@ export function Auth() {
         setLoading(false);
         return;
       }
+
+      await supabase.rpc('log_activity', { p_category: 'AUTH', p_detail: 'User logged in', p_metadata: { action_type: 'Log In' } });
     } catch (err: any) {
       setError(err.message || "Login failed. Please try again.");
     } finally {
@@ -214,6 +216,7 @@ export function Auth() {
 
       setSignupStep("otp");
       setMessage("An 8-digit OTP has been sent to your email.");
+      await supabase.rpc('log_activity', { p_category: 'AUTH', p_detail: 'New account created', p_metadata: { action_type: 'Sign Up' } });
     } catch (err: any) {
       setError(err.message || "Signup failed. Please try again.");
     } finally {

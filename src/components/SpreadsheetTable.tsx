@@ -240,7 +240,10 @@ export function SpreadsheetTable({
         <table className="w-full min-w-max">
           <thead>
             <tr className="bg-slate-800 text-white">
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky left-0 z-10 bg-slate-800 shadow-[2px_0_5px_rgba(0,0,0,0.1)]">
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky left-0 z-10 bg-slate-800 shadow-[2px_0_5px_rgba(0,0,0,0.1)] w-14">
+                S.No
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider sticky left-14 z-10 bg-slate-800 shadow-[2px_0_5px_rgba(0,0,0,0.1)]">
                 Name
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
@@ -269,8 +272,8 @@ export function SpreadsheetTable({
             </tr>
           </thead>
           <tbody>
-            {lots.map((lot, index) => {
-              const isSelected = selectedLotIndex === index;
+            {lots.map((lot, idx) => {
+              const isSelected = selectedLotIndex === idx;
               const hasData = lot.quantity > 0;
               const pileNumber = getPileNumber(lot.id);
               const subLabel = getSubLabel(lot.id);
@@ -278,7 +281,7 @@ export function SpreadsheetTable({
               const pileColors = PILE_COLORS[pileNumber];
               const subColor = pileColors?.subColors[subLabel] || PILE_COLORS[1].subColors.A;
               const isEditing = editingRowId === lot.id;
-              const isOddRow = index % 2 === 1;
+              const isOddRow = idx % 2 === 1;
 
               // Data columns use clean white/slate alternating rows
               const dataRowBg = isSelected
@@ -304,7 +307,7 @@ export function SpreadsheetTable({
                 : "border-l-4 border-l-transparent";
 
               // Pile partition: thicker border on the last sub-label (E) of each pile
-              const isPileLastRow = (index + 1) % 5 === 0;
+              const isPileLastRow = (idx + 1) % 5 === 0;
               const bottomBorder = isPileLastRow
                 ? "border-b-2 border-b-slate-400"
                 : "border-b border-b-slate-200";
@@ -478,7 +481,7 @@ export function SpreadsheetTable({
                         <div className="flex items-center justify-center gap-1">
                           {/* Select */}
                           <button
-                            onClick={() => onSelectLot(isSelected ? null : index)}
+                            onClick={() => onSelectLot(isSelected ? null : idx)}
                             className={`p-2 rounded-lg transition-colors ${
                               isSelected
                                 ? "bg-amber-500 text-white hover:bg-amber-600"

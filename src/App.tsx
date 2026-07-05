@@ -207,6 +207,17 @@ export default function App() {
     }
   }, [session, loadingAuth, fetchData]);
 
+  // ======================== DASHBOARD TRACKING ========================
+  useEffect(() => {
+    if (session && viewMode === "dashboard") {
+      const logDashboardView = async () => {
+        const { error } = await supabase.rpc('log_activity', { p_category: 'SYSTEM', p_detail: 'Viewed Dashboard', p_metadata: { action_type: 'Page View' } });
+        if (error) console.error(error);
+      };
+      logDashboardView();
+    }
+  }, [session, viewMode]);
+
   // ======================== LOT OPERATIONS ========================
 
   const syncLotToSupabase = async (lot: Lot) => {
@@ -261,6 +272,14 @@ export default function App() {
     setSyncing(true);
     try {
       await syncLotToSupabase(changedLot);
+      
+      const pileName = `Pile ${Math.floor(index / 5) + 1}`;
+      const sublotName = ["A", "B", "C", "D", "E"][index % 5];
+      await supabase.rpc('log_activity', { 
+        p_category: 'DATA_ENTRY', 
+        p_detail: `Added ${quantity} MT at ${gcv} GCV`,
+        p_metadata: { action_type: 'Add New Lot', target_pile: pileName, target_sublot: sublotName }
+      });
     } catch {
       setLots(prevLots);
     } finally {
@@ -277,6 +296,12 @@ export default function App() {
     setSyncing(true);
     try {
       await syncLotToSupabase(changedLot);
+      const pileName = `Pile ${Math.floor(lotIndex / 5) + 1}`;
+      await supabase.rpc('log_activity', { 
+        p_category: 'DATA_ENTRY', 
+        p_detail: `Merged ${quantity} MT at ${gcv} GCV`,
+        p_metadata: { action_type: 'Merge Lot', target_pile: pileName }
+      });
     } catch {
       setLots(lots);
     } finally {
@@ -293,6 +318,12 @@ export default function App() {
     setSyncing(true);
     try {
       await syncLotToSupabase(changedLot);
+      const pileName = `Pile ${Math.floor(lotIndex / 5) + 1}`;
+      await supabase.rpc('log_activity', { 
+        p_category: 'DATA_ENTRY', 
+        p_detail: `Removed ${quantity} MT`,
+        p_metadata: { action_type: 'Subtract Lot', target_pile: pileName }
+      });
     } catch {
       setLots(lots);
     } finally {
@@ -304,16 +335,37 @@ export default function App() {
 
   const handleEditLot = async (id: number, updatedValues: Partial<Lot>) => {
     const prevLots = lots;
+    const oldLot = lots.find((l) => l.id === id);
     const newLots = lots.map((lot) =>
       lot.id === id ? { ...lot, ...updatedValues } : lot
     );
     const changedLot = newLots.find((lot) => lot.id === id);
-    if (!changedLot) return;
+    if (!changedLot || !oldLot) return;
+
+    let changedField = "";
+    let oldValue: any = "";
+    let newValue: any = "";
+    for (const key of Object.keys(updatedValues) as (keyof Lot)[]) {
+      if (oldLot[key] !== updatedValues[key]) {
+        changedField = key;
+        oldValue = oldLot[key];
+        newValue = updatedValues[key];
+        break;
+      }
+    }
 
     setLots(newLots);
     setSyncing(true);
     try {
       await syncLotToSupabase(changedLot);
+      const index = id - 1;
+      const pileName = `Pile ${Math.floor(index / 5) + 1}`;
+      const sublotName = ["A", "B", "C", "D", "E"][index % 5];
+      await supabase.rpc('log_activity', { 
+        p_category: 'DATA_ENTRY', 
+        p_detail: `Changed ${changedField} from ${oldValue} to ${newValue}`,
+        p_metadata: { action_type: 'Inline Edit', target_pile: pileName, target_sublot: sublotName }
+      });
     } catch {
       setLots(prevLots);
     } finally {
@@ -341,6 +393,14 @@ export default function App() {
     setSyncing(true);
     try {
       await syncLotToSupabase(changedLot);
+      const index = id - 1;
+      const pileName = `Pile ${Math.floor(index / 5) + 1}`;
+      const sublotName = ["A", "B", "C", "D", "E"][index % 5];
+      await supabase.rpc('log_activity', { 
+        p_category: 'DATA_ENTRY', 
+        p_detail: 'Cleared lot data to 0',
+        p_metadata: { action_type: 'Reset Lot', target_pile: pileName, target_sublot: sublotName }
+      });
     } catch {
       setLots(prevLots);
     } finally {
@@ -375,6 +435,11 @@ export default function App() {
       } else {
         setSavedStates([...savedStates, { date: today, lots }]);
       }
+      await supabase.rpc('log_activity', { 
+        p_category: 'SYSTEM', 
+        p_detail: 'Saved historical snapshot', 
+        p_metadata: { action_type: 'Save State' } 
+      });
     } catch (error) {
       console.error("Error saving state:", error);
     } finally {
@@ -410,6 +475,12 @@ export default function App() {
       const results = await Promise.all(updates);
       const failed = results.find((r) => r.error);
       if (failed?.error) throw failed.error;
+
+      await supabase.rpc('log_activity', { 
+        p_category: 'SYSTEM', 
+        p_detail: 'Loaded historical snapshot', 
+        p_metadata: { action_type: 'Load State' }
+      });
     } catch (error) {
       console.error("Error restoring lots from snapshot:", error);
       // Re-fetch to get consistent state
@@ -433,6 +504,10 @@ export default function App() {
       if (selectedDate === date) {
         setSelectedDate(null);
       }
+      await supabase.rpc('log_activity', { 
+        p_category: 'DATA_ENTRY', 
+        p_detail: `Deleted historical state for ${date}`
+      });
     } catch (error) {
       console.error("Error deleting state:", error);
     } finally {
@@ -444,6 +519,7 @@ export default function App() {
 
   const handleLogout = async () => {
     if (!window.confirm("Are you sure you want to sign out?")) return;
+    await supabase.rpc('log_activity', { p_category: 'AUTH', p_detail: 'User signed out', p_metadata: { action_type: 'Sign Out' } });
     await supabase.auth.signOut();
   };
 

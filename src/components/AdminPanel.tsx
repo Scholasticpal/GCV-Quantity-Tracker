@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 import {
   Menu,
@@ -8,6 +8,10 @@ import {
   AlertTriangle,
   Ban,
   ShieldOff,
+  Activity,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────
@@ -16,6 +20,15 @@ interface UserRecord {
   role: string;
   is_banned: boolean;
   last_active_at: string | null;
+}
+
+interface LogRecord {
+  id: string;
+  user_email: string;
+  action_category: string;
+  action_detail: string;
+  created_at: string;
+  metadata?: any;
 }
 
 interface AdminPanelProps {
@@ -102,6 +115,35 @@ function getRoleDisplayName(role: string): string {
   }
 }
 
+function getLogCategoryBadgeClasses(category: string): string {
+  switch (category?.toUpperCase()) {
+    case "AUTH":
+      return "bg-blue-100 text-blue-700 border-blue-200";
+    case "DATA_ENTRY":
+      return "bg-purple-100 text-purple-700 border-purple-200";
+    case "ADMIN_ACTION":
+      return "bg-amber-100 text-amber-700 border-amber-200";
+    case "SYSTEM":
+      return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    default:
+      return "bg-slate-100 text-slate-600 border-slate-200";
+  }
+}
+
+function getPileColor(pileName: string | undefined): string {
+  if (!pileName) return "text-slate-600";
+  const name = pileName.toUpperCase();
+  if (name.includes("1")) return "text-emerald-600";
+  if (name.includes("2")) return "text-blue-600";
+  if (name.includes("3")) return "text-amber-600";
+  if (name.includes("4")) return "text-purple-600";
+  if (name.includes("5")) return "text-rose-600";
+  if (name.includes("6")) return "text-cyan-600";
+  return "text-slate-700";
+}
+
+const LOGS_PER_PAGE = 25;
+
 // ─── Component ───────────────────────────────────────────────
 
 export function AdminPanel({ currentRole }: AdminPanelProps) {
@@ -112,8 +154,16 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"users" | "logs">("users");
 
-  // ════════════════════ FETCH ════════════════════
+  // ─── Logs State ───
+  const [logs, setLogs] = useState<LogRecord[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [logPage, setLogPage] = useState(1);
+
+  // ════════════════════ FETCH USERS ════════════════════
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -133,6 +183,38 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
     fetchUsers();
   }, [fetchUsers]);
 
+  // ════════════════════ FETCH LOGS & REALTIME ════════════════════
+  useEffect(() => {
+    const fetchLogs = async () => {
+      const { data } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (data) setLogs(data as LogRecord[]);
+    };
+
+    fetchLogs();
+
+    const channel = supabase
+      .channel('realtime_logs')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'activity_logs' },
+        (payload) => {
+          setLogs((prev) => {
+            const newLog = payload.new as LogRecord;
+            if (prev.some(log => log.id === newLog.id)) return prev;
+            return [newLog, ...prev];
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   // ════════════════════ ACTIONS ════════════════════
 
   const handleChangeRole = async (email: string, newRole: string) => {
@@ -140,6 +222,7 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
     try {
       const { error } = await supabase.rpc('admin_update_role', { target_email: email, new_role: newRole });
       if (error) throw error;
+      await supabase.rpc('log_activity', { p_category: 'ADMIN_ACTION', p_detail: `Changed role of ${email} to ${newRole}`, p_metadata: { action_type: newRole === 'admin' ? 'Make Admin' : 'Dismiss Admin' } });
       await fetchUsers();
     } catch (err: any) {
       console.error("Error changing role:", err);
@@ -157,6 +240,7 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
     try {
       const { error } = await supabase.rpc('admin_set_ban', { target_email: email, ban_status: true });
       if (error) throw error;
+      await supabase.rpc('log_activity', { p_category: 'ADMIN_ACTION', p_detail: `Banned user ${email}`, p_metadata: { action_type: 'Ban User' } });
       await fetchUsers();
     } catch (err: any) {
       console.error("Error banning user:", err);
@@ -172,12 +256,20 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
     try {
       const { error } = await supabase.rpc('admin_set_ban', { target_email: email, ban_status: false });
       if (error) throw error;
+      await supabase.rpc('log_activity', { p_category: 'ADMIN_ACTION', p_detail: `Unbanned user ${email}`, p_metadata: { action_type: 'Unban User' } });
       await fetchUsers();
     } catch (err: any) {
       console.error("Error unbanning user:", err);
       setError(err.message || "Failed to unban user.");
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleClearLogs = async () => {
+    if (window.confirm('Clear all logs?')) {
+      await supabase.rpc('dev_clear_logs');
+      setLogs([]);
     }
   };
 
@@ -277,6 +369,38 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
   const activeUsers = sortUsers(users.filter((u) => !u.is_banned));
   const bannedUsers = sortUsers(users.filter((u) => u.is_banned));
 
+  const filteredLogs = useMemo(() => {
+    return logs.filter((log) => {
+      // Date filtering
+      if (dateFrom && log.created_at < dateFrom) return false;
+      if (dateTo && log.created_at > dateTo + 'T23:59:59Z') return false;
+
+      // Search filtering
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const searchString = `${log.user_email} ${log.action_category} ${log.action_detail}`.toLowerCase();
+        
+        const orBlocks = query.split(" or ");
+        const matches = orBlocks.some(block => {
+          const terms = block.trim().split(/\s+/);
+          return terms.every(term => searchString.includes(term));
+        });
+
+        if (!matches) return false;
+      }
+
+      return true;
+    });
+  }, [logs, searchQuery, dateFrom, dateTo]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / LOGS_PER_PAGE));
+  const paginatedLogs = filteredLogs.slice((logPage - 1) * LOGS_PER_PAGE, logPage * LOGS_PER_PAGE);
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setLogPage(1);
+  }, [searchQuery, dateFrom, dateTo]);
+
   // ════════════════════ SIDEBAR ════════════════════
   const sidebar = (
     <div className="flex flex-col h-full">
@@ -298,15 +422,37 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4">
+      <nav className="flex-1 px-3 py-4 space-y-1.5">
         <p className="px-2 mb-2 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
           Navigation
         </p>
         <button
-          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default"
+          onClick={() => {
+            setActiveTab("users");
+            setSidebarOpen(false);
+          }}
+          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border cursor-pointer ${
+            activeTab === "users"
+              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+              : "text-slate-600 hover:bg-slate-100 border-transparent"
+          }`}
         >
           <Users className="w-4 h-4" />
           Users List
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab("logs");
+            setSidebarOpen(false);
+          }}
+          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border cursor-pointer ${
+            activeTab === "logs"
+              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+              : "text-slate-600 hover:bg-slate-100 border-transparent"
+          }`}
+        >
+          <Activity className="w-4 h-4" />
+          Activity Logs
         </button>
       </nav>
 
@@ -328,7 +474,7 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
 
   // ════════════════════ RENDER ════════════════════
   return (
-    <div className="flex flex-1 min-h-0">
+    <div className="flex flex-1 min-h-0 h-full">
       {/* ── Mobile Overlay ── */}
       {sidebarOpen && (
         <div
@@ -365,187 +511,350 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
 
         {/* Content Area */}
         <div className="p-4 sm:p-6 lg:p-8">
-          {/* Page Header */}
-          <div className="flex items-center gap-2.5 mb-6">
-            <Users className="w-5 h-5 text-emerald-600" />
-            <h2 className="text-lg font-bold text-slate-800">Users List</h2>
-            <span className="ml-1 text-xs text-slate-400 font-medium">
-              ({activeUsers.length} active)
-            </span>
-          </div>
-
-          {/* Error State */}
-          {error && (
-            <div className="mb-5 p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200 flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{error}</span>
-            </div>
-          )}
-
-          {/* Loading State */}
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <div className="w-7 h-7 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
-              <span className="text-sm text-slate-500">Loading users…</span>
-            </div>
-          ) : activeUsers.length === 0 ? (
-            <div className="text-center py-20 text-slate-400 text-sm">
-              No active users found.
-            </div>
-          ) : (
-            /* Active Users Table */
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider w-14">
-                      S.No
-                    </th>
-                    <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
-                      Email ID
-                    </th>
-                    <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
-                      Role
-                    </th>
-                    <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider hidden md:table-cell">
-                      Last Active
-                    </th>
-                    <th className="text-right px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activeUsers.map((user, idx) => (
-                    <tr
-                      key={user.email}
-                      className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors"
-                    >
-                      {/* S.No */}
-                      <td className="px-4 py-3 text-slate-400 font-mono text-xs">
-                        {idx + 1}
-                      </td>
-
-                      {/* Email ID */}
-                      <td className="px-4 py-3">
-                        <span className="text-slate-800 font-medium">{user.email}</span>
-                      </td>
-
-                      {/* Role */}
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getRoleBadgeClasses(user.role)}`}
-                        >
-                          {getRoleDisplayName(user.role)}
-                        </span>
-                      </td>
-
-                      {/* Last Active */}
-                      <td className="px-4 py-3 text-slate-500 text-xs hidden md:table-cell">
-                        {formatLastActive(user.last_active_at)}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-4 py-3 text-right">
-                        {renderActions(user)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* ════════════════════ BANNED USERS SECTION ════════════════════ */}
-          {bannedUsers.length > 0 && (
+          
+          {/* ==================== USERS TAB ==================== */}
+          {activeTab === "users" && (
             <>
-              <div className="flex items-center gap-2.5 mt-10 mb-6">
-                <Ban className="w-5 h-5 text-red-500" />
-                <h2 className="text-lg font-bold text-slate-800">Banned Accounts</h2>
-                <span className="ml-1 text-xs text-red-400 font-medium">
-                  ({bannedUsers.length})
+              {/* Page Header */}
+              <div className="flex items-center gap-2.5 mb-6">
+                <Users className="w-5 h-5 text-emerald-600" />
+                <h2 className="text-lg font-bold text-slate-800">Users List</h2>
+                <span className="ml-1 text-xs text-slate-400 font-medium">
+                  ({activeUsers.length} active)
                 </span>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-red-200 bg-white shadow-sm">
+              {/* Error State */}
+              {error && (
+                <div className="mb-5 p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              {/* Loading State */}
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <div className="w-7 h-7 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+                  <span className="text-sm text-slate-500">Loading users…</span>
+                </div>
+              ) : activeUsers.length === 0 ? (
+                <div className="text-center py-20 text-slate-400 text-sm">
+                  No active users found.
+                </div>
+              ) : (
+                /* Active Users Table */
+                <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200">
+                        <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider w-14">
+                          S.No
+                        </th>
+                        <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
+                          Email ID
+                        </th>
+                        <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
+                          Role
+                        </th>
+                        <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider hidden md:table-cell">
+                          Last Active
+                        </th>
+                        <th className="text-right px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activeUsers.map((user, idx) => (
+                        <tr
+                          key={user.email}
+                          className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors"
+                        >
+                          {/* S.No */}
+                          <td className="px-4 py-3 text-slate-400 font-mono text-xs">
+                            {idx + 1}
+                          </td>
+
+                          {/* Email ID */}
+                          <td className="px-4 py-3">
+                            <span className="text-slate-800 font-medium">{user.email}</span>
+                          </td>
+
+                          {/* Role */}
+                          <td className="px-4 py-3">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getRoleBadgeClasses(user.role)}`}
+                            >
+                              {getRoleDisplayName(user.role)}
+                            </span>
+                          </td>
+
+                          {/* Last Active */}
+                          <td className="px-4 py-3 text-slate-500 text-xs hidden md:table-cell">
+                            {formatLastActive(user.last_active_at)}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="px-4 py-3 text-right">
+                            {renderActions(user)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* ════════════════════ BANNED USERS SECTION ════════════════════ */}
+              {bannedUsers.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2.5 mt-10 mb-6">
+                    <Ban className="w-5 h-5 text-red-500" />
+                    <h2 className="text-lg font-bold text-slate-800">Banned Accounts</h2>
+                    <span className="ml-1 text-xs text-red-400 font-medium">
+                      ({bannedUsers.length})
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-red-200 bg-white shadow-sm">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-red-50/50 border-b border-red-200">
+                          <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider w-14">
+                            S.No
+                          </th>
+                          <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
+                            Email ID
+                          </th>
+                          <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
+                            Role
+                          </th>
+                          <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider hidden md:table-cell">
+                            Last Active
+                          </th>
+                          <th className="text-right px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bannedUsers.map((user, idx) => (
+                          <tr
+                            key={user.email}
+                            className="border-b border-red-100 last:border-b-0 hover:bg-red-50/30 transition-colors"
+                          >
+                            {/* S.No */}
+                            <td className="px-4 py-3 text-slate-400 font-mono text-xs">
+                              {idx + 1}
+                            </td>
+
+                            {/* Email ID */}
+                            <td className="px-4 py-3">
+                              <span className="text-slate-800 font-medium line-through decoration-red-300">
+                                {user.email}
+                              </span>
+                            </td>
+
+                            {/* Role */}
+                            <td className="px-4 py-3">
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getRoleBadgeClasses(user.role)}`}
+                              >
+                                {getRoleDisplayName(user.role)}
+                              </span>
+                            </td>
+
+                            {/* Last Active */}
+                            <td className="px-4 py-3 text-slate-500 text-xs hidden md:table-cell">
+                              {formatLastActive(user.last_active_at)}
+                            </td>
+
+                            {/* Actions */}
+                            <td className="px-4 py-3 text-right">
+                              {actionLoading === user.email ? (
+                                <div className="inline-flex items-center gap-1.5 text-slate-400 text-xs">
+                                  <div className="w-3.5 h-3.5 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
+                                  Updating…
+                                </div>
+                              ) : isSuperadmin ? (
+                                <button
+                                  onClick={() => handleUnbanUser(user.email)}
+                                  className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
+                                >
+                                  <ShieldOff className="w-3 h-3" />
+                                  Unban
+                                </button>
+                              ) : (
+                                <span className="text-xs text-slate-400 italic">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {/* ==================== LOGS TAB ==================== */}
+          {activeTab === "logs" && (
+            <>
+              {/* Page Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <div className="flex items-center gap-2.5">
+                  <Activity className="w-5 h-5 text-emerald-600" />
+                  <h2 className="text-lg font-bold text-slate-800">System Logs</h2>
+                </div>
+                {isSuperadmin && (
+                  <button
+                    onClick={handleClearLogs}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 hover:border-red-300 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Clear Logs (Dev)
+                  </button>
+                )}
+              </div>
+
+              {/* Toolbar */}
+              <div className="flex flex-col lg:flex-row gap-3 mb-6">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search logs (e.g. 'Pile 1' OR 'Auth')..."
+                  className="flex-1 w-full px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-shadow"
+                />
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 text-sm text-slate-500 bg-white border border-slate-300 rounded-lg px-3 py-1 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-shadow w-full lg:w-auto">
+                    <span>From</span>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="bg-transparent border-none focus:outline-none text-slate-700 cursor-pointer"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-slate-500 bg-white border border-slate-300 rounded-lg px-3 py-1 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500 transition-shadow w-full lg:w-auto">
+                    <span>To</span>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="bg-transparent border-none focus:outline-none text-slate-700 cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Logs Table */}
+              <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-red-50/50 border-b border-red-200">
+                    <tr className="bg-slate-50 border-b border-slate-200">
                       <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider w-14">
                         S.No
                       </th>
-                      <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
-                        Email ID
+                      <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider w-40">
+                        Timestamp
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider w-48">
+                        User
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider w-36">
+                        Category
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider w-36">
+                        Action
                       </th>
                       <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
-                        Role
-                      </th>
-                      <th className="text-left px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider hidden md:table-cell">
-                        Last Active
-                      </th>
-                      <th className="text-right px-4 py-3 font-semibold text-slate-500 text-xs uppercase tracking-wider">
-                        Actions
+                        Details
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {bannedUsers.map((user, idx) => (
-                      <tr
-                        key={user.email}
-                        className="border-b border-red-100 last:border-b-0 hover:bg-red-50/30 transition-colors"
-                      >
-                        {/* S.No */}
-                        <td className="px-4 py-3 text-slate-400 font-mono text-xs">
-                          {idx + 1}
-                        </td>
-
-                        {/* Email ID */}
-                        <td className="px-4 py-3">
-                          <span className="text-slate-800 font-medium line-through decoration-red-300">
-                            {user.email}
-                          </span>
-                        </td>
-
-                        {/* Role */}
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getRoleBadgeClasses(user.role)}`}
-                          >
-                            {getRoleDisplayName(user.role)}
-                          </span>
-                        </td>
-
-                        {/* Last Active */}
-                        <td className="px-4 py-3 text-slate-500 text-xs hidden md:table-cell">
-                          {formatLastActive(user.last_active_at)}
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-4 py-3 text-right">
-                          {actionLoading === user.email ? (
-                            <div className="inline-flex items-center gap-1.5 text-slate-400 text-xs">
-                              <div className="w-3.5 h-3.5 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
-                              Updating…
-                            </div>
-                          ) : isSuperadmin ? (
-                            <button
-                              onClick={() => handleUnbanUser(user.email)}
-                              className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
-                            >
-                              <ShieldOff className="w-3 h-3" />
-                              Unban
-                            </button>
-                          ) : (
-                            <span className="text-xs text-slate-400 italic">—</span>
-                          )}
+                    {paginatedLogs.length > 0 ? (
+                      paginatedLogs.map((log, idx) => (
+                        <tr key={log.id} className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/60 transition-colors">
+                          <td className="px-4 py-3 text-slate-400 font-mono text-xs">
+                            {(logPage - 1) * LOGS_PER_PAGE + idx + 1}
+                          </td>
+                          <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
+                            {new Date(log.created_at).toLocaleString('en-IN', {
+                              day: '2-digit', month: 'short', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit'
+                            })}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="text-slate-800 font-medium truncate max-w-[180px] block" title={log.user_email}>
+                              {log.user_email}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold tracking-wider border ${getLogCategoryBadgeClasses(log.action_category)}`}>
+                              {log.action_category}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {log.metadata?.action_type ? (
+                              <span className="text-slate-800 font-medium text-xs whitespace-nowrap">{log.metadata.action_type}</span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {log.metadata?.target_pile && (
+                              <span className={`font-bold mr-2 ${getPileColor(log.metadata.target_pile)}`}>
+                                [{log.metadata.target_pile}{log.metadata.target_sublot ? ` - ${log.metadata.target_sublot}` : ''}]
+                              </span>
+                            )}
+                            <span className="text-slate-600">{log.action_detail}</span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500">
+                          No logs found matching your criteria.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
+              
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 bg-white border border-slate-200 rounded-lg px-4 py-3 shadow-sm">
+                  <p className="text-sm text-slate-500">
+                    Showing page <span className="font-semibold text-slate-700">{logPage}</span> of <span className="font-semibold text-slate-700">{totalPages}</span>
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setLogPage(p => Math.max(1, p - 1))}
+                      disabled={logPage === 1}
+                      className="inline-flex items-center justify-center p-1.5 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={() => setLogPage(p => Math.min(totalPages, p + 1))}
+                      disabled={logPage === totalPages}
+                      className="inline-flex items-center justify-center p-1.5 rounded-md border border-slate-300 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      aria-label="Next page"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
+
         </div>
       </main>
     </div>
