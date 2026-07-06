@@ -7,7 +7,7 @@ import { DateHistoryPanel } from "./components/DateHistoryPanel";
 import { AdminPanel } from "./components/AdminPanel";
 import { Auth } from "./components/Auth";
 import { Lot } from "./types/lot";
-import { initializeLots, addLotToExisting, subtractFromLot } from "./utils/lotUtils";
+import { initializeLots } from "./utils/lotUtils";
 
 import { supabase } from "./lib/supabase";
 import { Session } from "@supabase/supabase-js";
@@ -18,7 +18,7 @@ export interface SavedState {
   lots: Lot[];
 }
 
-export default function App() {
+export function App() {
   // ─── Auth State ───────────────────────────────────────────
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<string | undefined>(undefined);
@@ -39,6 +39,7 @@ export default function App() {
   // ─── View Mode ────────────────────────────────────────────
   const [viewMode, setViewMode] = useState<"dashboard" | "admin">("dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [stagedAction, setStagedAction] = useState<any | null>(null);
 
   // ======================== AUTH ========================
   useEffect(() => {
@@ -240,96 +241,92 @@ export default function App() {
     }
   };
 
-  const handleAddNewLot = async (index: number, gcv: number, quantity: number) => {
-    if (index < 0 || index >= lots.length) return;
-
-    const targetLot = lots[index];
-    let newLots: Lot[];
-
-    if (targetLot.quantity === 0) {
-      // Empty slot: direct insert/set
-      newLots = lots.map((lot, i) => {
-        if (i === index) {
-          return {
-            ...lot,
-            gcv,
-            quantity,
-            originalGcv: gcv,
-            originalQuantity: quantity,
-            lotsAdded: 1,
-          };
-        }
-        return lot;
-      });
-    } else {
-      // Slot has data: weighted average merge (same as addLotToExisting)
-      newLots = addLotToExisting(lots, index, gcv, quantity);
-      if (newLots === lots) return;
-    }
-
-    const changedLot = newLots[index];
-    const prevLots = lots;
-    setLots(newLots);
+  const handlePublishStagedData = async () => {
+    if (!stagedAction) return;
     setSyncing(true);
+    const { changedLot, type, pileName, sublotName, newQuantity, newGcv } = stagedAction;
     try {
       await syncLotToSupabase(changedLot);
       
-      const pileName = `Pile ${Math.floor(index / 5) + 1}`;
-      const sublotName = ["A", "B", "C", "D", "E"][index % 5];
-      await supabase.rpc('log_activity', { 
-        p_category: 'DATA_ENTRY', 
-        p_detail: `Added ${quantity} MT at ${gcv} GCV`,
-        p_metadata: { action_type: 'Add New Lot', target_pile: pileName, target_sublot: sublotName }
+      let detail = '';
+      if (type === 'ADD') detail = `Added ${newQuantity} MT at ${newGcv} GCV`;
+      else if (type === 'MERGE') detail = `Merged ${newQuantity} MT at ${newGcv} GCV`;
+      else if (type === 'SUBTRACT') detail = `Removed ${newQuantity} MT`;
+
+      await supabase.rpc('log_activity', {
+        p_category: 'DATA_ENTRY',
+        p_detail: detail,
+        p_metadata: {
+          action_type: type === 'ADD' ? 'Add New Lot' : type === 'MERGE' ? 'Merge Lot' : 'Subtract Lot',
+          target_pile: pileName,
+          ...(sublotName ? { target_sublot: sublotName } : {})
+        }
       });
-    } catch {
-      setLots(prevLots);
+      
+      setStagedAction(null);
+      await fetchData();
+    } catch (err) {
+      console.error(err);
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleAddNewLot = async (index: number, gcv: number, quantity: number) => {
+    const targetLot = lots[index];
+    const pileNum = Math.floor(index / 5) + 1;
+    const subLabel = ["A", "B", "C", "D", "E"][index % 5];
+    
+    let finalGcv = gcv;
+    let finalQty = quantity;
+    if (targetLot.quantity > 0) {
+      finalQty = targetLot.quantity + quantity;
+      finalGcv = ((targetLot.gcv * targetLot.quantity) + (gcv * quantity)) / finalQty;
+    }
+    
+    setStagedAction({ 
+      type: 'ADD', 
+      pileName: `Pile ${pileNum}`, 
+      sublotName: subLabel, 
+      newGcv: Math.round(finalGcv), 
+      newQuantity: finalQty,
+      changedLot: { ...targetLot, gcv: Math.round(finalGcv), quantity: finalQty, lotsAdded: targetLot.lotsAdded + 1 }
+    });
   };
 
   const handleAddToExisting = async (lotIndex: number, gcv: number, quantity: number) => {
-    const newLots = addLotToExisting(lots, lotIndex, gcv, quantity);
-    if (newLots === lots) return;
+    const targetLot = lots[lotIndex];
+    const pileNum = Math.floor(lotIndex / 5) + 1;
+    const subLabel = ["A", "B", "C", "D", "E"][lotIndex % 5];
+    
+    const finalQty = targetLot.quantity + quantity;
+    const finalGcv = ((targetLot.gcv * targetLot.quantity) + (gcv * quantity)) / finalQty;
 
-    const changedLot = newLots[lotIndex];
-    setLots(newLots);
-    setSyncing(true);
-    try {
-      await syncLotToSupabase(changedLot);
-      const pileName = `Pile ${Math.floor(lotIndex / 5) + 1}`;
-      await supabase.rpc('log_activity', { 
-        p_category: 'DATA_ENTRY', 
-        p_detail: `Merged ${quantity} MT at ${gcv} GCV`,
-        p_metadata: { action_type: 'Merge Lot', target_pile: pileName }
-      });
-    } catch {
-      setLots(lots);
-    } finally {
-      setSyncing(false);
-    }
+    setStagedAction({ 
+      type: 'MERGE', 
+      pileName: `Pile ${pileNum}`, 
+      sublotName: subLabel, 
+      newGcv: Math.round(finalGcv), 
+      newQuantity: finalQty,
+      changedLot: { ...targetLot, gcv: Math.round(finalGcv), quantity: finalQty, lotsAdded: targetLot.lotsAdded + 1 }
+    });
   };
 
   const handleSubtractFromLot = async (lotIndex: number, quantity: number) => {
-    const newLots = subtractFromLot(lots, lotIndex, quantity);
-    if (newLots === lots) return;
+    const targetLot = lots[lotIndex];
+    const pileNum = Math.floor(lotIndex / 5) + 1;
+    const subLabel = ["A", "B", "C", "D", "E"][lotIndex % 5];
+    
+    const finalQty = Math.max(0, targetLot.quantity - quantity);
 
-    const changedLot = newLots[lotIndex];
-    setLots(newLots);
-    setSyncing(true);
-    try {
-      await syncLotToSupabase(changedLot);
-      const pileName = `Pile ${Math.floor(lotIndex / 5) + 1}`;
-      await supabase.rpc('log_activity', { 
-        p_category: 'DATA_ENTRY', 
-        p_detail: `Removed ${quantity} MT`,
-        p_metadata: { action_type: 'Subtract Lot', target_pile: pileName }
-      });
-    } catch {
-      setLots(lots);
-    } finally {
-      setSyncing(false);
-    }
+    setStagedAction({ 
+      type: 'SUBTRACT', 
+      pileName: `Pile ${pileNum}`, 
+      sublotName: subLabel, 
+      newGcv: targetLot.gcv,
+      newQuantity: finalQty,
+      changedLot: { ...targetLot, quantity: finalQty, lotsSubtracted: targetLot.lotsSubtracted + 1 }
+    });
   };
 
   // ======================== INLINE EDIT & RESET ========================
@@ -649,6 +646,19 @@ export default function App() {
         )}
       </header>
 
+      {stagedAction && (
+        <div className="sticky top-0 left-0 w-full z-50 bg-white border-b-2 border-b-[#F58220] shadow-md px-6 py-3 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <span className="text-[#F58220] font-bold text-lg">⚠️</span>
+            <p className="text-sm text-slate-700 italic font-medium">Are you sure you want to publish this data? Later, only a Superadmin can change it.</p>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={() => setStagedAction(null)} className="text-slate-600 bg-slate-100 hover:bg-slate-200 px-4 py-1.5 rounded-md text-sm font-semibold transition-colors">Cancel</button>
+            <button onClick={handlePublishStagedData} className="bg-[#003B70] hover:bg-[#002A50] text-white px-6 py-1.5 rounded-md text-sm font-bold shadow-sm transition-colors">Publish Data</button>
+          </div>
+        </div>
+      )}
+
       {/* ─── Scrollable Content Pane ────────────────────────── */}
       <main className="flex-1 w-full p-2 sm:p-4 md:overflow-y-auto">
         {/* ─── Admin Panel View ───────────────────────────────── */}
@@ -705,6 +715,7 @@ export default function App() {
                   selectedLotIndex={selectedLotIndex}
                   lots={lots}
                   role={role}
+                  stagedAction={stagedAction}
                 />
 
                 <SpreadsheetTable
@@ -714,6 +725,7 @@ export default function App() {
                   onEditLot={handleEditLot}
                   onResetLot={handleResetLot}
                   role={role}
+                  stagedAction={stagedAction}
                 />
               </>
             )}
@@ -733,3 +745,5 @@ export default function App() {
     </div>
   );
 }
+
+export default App;

@@ -1,7 +1,7 @@
-import { useState, ChangeEvent } from "react";
+import { useState, ChangeEvent, useEffect } from "react";
 import { Lot } from "../types/lot";
 import { Plus, Minus } from "lucide-react";
-import { getLotLabel, getPileNumber } from "../utils/lotUtils";
+import { getLotLabel, getPileNumber, getSubLabel } from "../utils/lotUtils";
 import { PILE_THEMES } from "../utils/lotUtils";
 
 const MAX_VALUE = 1000000;
@@ -14,6 +14,7 @@ interface ControlPanelProps {
   selectedLotIndex: number | null;
   lots: Lot[];
   role?: string;
+  stagedAction?: any;
 }
 
 
@@ -25,6 +26,7 @@ export function ControlPanel({
   selectedLotIndex,
   lots,
   role,
+  stagedAction,
 }: ControlPanelProps) {
   const [addGcv, setAddGcv] = useState("");
   const [addQuantity, setAddQuantity] = useState("");
@@ -46,8 +48,6 @@ export function ControlPanel({
 
     const targetIndex = (selectedTargetPile - 1) * 5 + SUB_LABELS.indexOf(selectedTargetSub);
     onAddNewLot(targetIndex, gcv, quantity);
-    setAddGcv("");
-    setAddQuantity("");
   };
 
   const handleAddToExisting = () => {
@@ -63,8 +63,6 @@ export function ControlPanel({
     }
 
     onAddToExisting(selectedLotIndex, gcv, quantity);
-    setAddToExistingGcv("");
-    setAddToExistingQuantity("");
   };
 
   const handleSubtract = () => {
@@ -79,8 +77,56 @@ export function ControlPanel({
     }
 
     onSubtractFromLot(selectedLotIndex, quantity);
-    setSubtractQuantity("");
   };
+
+  // ─── Reactive Sync Effects ──────────────────────────────────────────
+
+  // Clear inputs when staging is cancelled or published
+  useEffect(() => {
+    if (stagedAction === null) {
+      setAddGcv("");
+      setAddQuantity("");
+      setAddToExistingGcv("");
+      setAddToExistingQuantity("");
+      setSubtractQuantity("");
+    }
+  }, [stagedAction]);
+
+  // Reactive Sync: Add New Lot
+  useEffect(() => {
+    if (stagedAction?.type === 'ADD' && stagedAction.pileName === `Pile ${selectedTargetPile}` && stagedAction.sublotName === selectedTargetSub) {
+      if (addGcv !== "" && addQuantity !== "") {
+        handleAddNewLot();
+      }
+    }
+  }, [addGcv, addQuantity, selectedTargetPile, selectedTargetSub]);
+
+  // Reactive Sync: Merge
+  useEffect(() => {
+    if (stagedAction?.type === 'MERGE' && selectedLotIndex !== null) {
+      const selectedPile = getPileNumber(lots[selectedLotIndex].id);
+      const selectedSub = getSubLabel(lots[selectedLotIndex].id);
+      if (stagedAction.pileName === `Pile ${selectedPile}` && stagedAction.sublotName === selectedSub) {
+        if (addToExistingGcv !== "" && addToExistingQuantity !== "") {
+          handleAddToExisting();
+        }
+      }
+    }
+  }, [addToExistingGcv, addToExistingQuantity, selectedLotIndex]);
+
+  // Reactive Sync: Subtract
+  useEffect(() => {
+    if (stagedAction?.type === 'SUBTRACT' && selectedLotIndex !== null) {
+      const selectedPile = getPileNumber(lots[selectedLotIndex].id);
+      const selectedSub = getSubLabel(lots[selectedLotIndex].id);
+      if (stagedAction.pileName === `Pile ${selectedPile}` && stagedAction.sublotName === selectedSub) {
+        if (subtractQuantity !== "") {
+          handleSubtract();
+        }
+      }
+    }
+  }, [subtractQuantity, selectedLotIndex]);
+
 
   const selectedLot = selectedLotIndex !== null ? lots[selectedLotIndex] : null;
   const selectedLotLabel = selectedLot ? getLotLabel(selectedLot.id) : "";

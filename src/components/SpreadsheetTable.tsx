@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Lot } from "../types/lot";
 import { getLotLabel, getPileNumber, getSubLabel, PILE_THEMES } from "../utils/lotUtils";
 import { MousePointerClick, Pencil, Trash2, Check, X } from "lucide-react";
@@ -12,6 +12,7 @@ interface SpreadsheetTableProps {
   onEditLot?: (id: number, updatedValues: Partial<Lot>) => void;
   onResetLot?: (id: number) => void;
   role?: string;
+  stagedAction?: any;
 }
 
 interface EditFormData {
@@ -70,6 +71,7 @@ export function SpreadsheetTable({
   onEditLot,
   onResetLot,
   role,
+  stagedAction,
 }: SpreadsheetTableProps) {
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
   const [editFormData, setEditFormData] = useState<EditFormData>({
@@ -95,6 +97,17 @@ export function SpreadsheetTable({
       lotsSubtracted: String(lot.lotsSubtracted),
     });
   };
+
+  useEffect(() => {
+    if (stagedAction) {
+      const pNum = stagedAction.pileName.replace('Pile ', '');
+      const targetId = `row-${pNum}-${stagedAction.sublotName}`;
+      setTimeout(() => {
+        const el = document.getElementById(targetId);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+    }
+  }, [stagedAction]);
 
   const cancelEditing = () => {
     setEditingRowId(null);
@@ -173,6 +186,30 @@ export function SpreadsheetTable({
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-slate-200">
+      <style>{`
+        .marching-ants-cell {
+          position: relative !important;
+          background-color: #eff6ff !important;
+          color: #003B70 !important;
+        }
+        .marching-ants-cell::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: 4px;
+          background-image: linear-gradient(90deg, #003B70 50%, transparent 50%), linear-gradient(90deg, #003B70 50%, transparent 50%), linear-gradient(0deg, #003B70 50%, transparent 50%), linear-gradient(0deg, #003B70 50%, transparent 50%);
+          background-repeat: repeat-x, repeat-x, repeat-y, repeat-y;
+          background-size: 12px 2px, 12px 2px, 2px 12px, 2px 12px;
+          background-position: left top, right bottom, left bottom, right top;
+          animation: border-dance 0.4s infinite linear;
+          pointer-events: none;
+          z-index: 50;
+        }
+        @keyframes border-dance {
+          0% { background-position: left top, right bottom, left bottom, right top; }
+          100% { background-position: left 12px top, right -12px bottom, left bottom -12px, right top 12px; }
+        }
+      `}</style>
       <div className="overflow-x-auto">
         <table className="w-full min-w-max">
           <thead>
@@ -217,6 +254,8 @@ export function SpreadsheetTable({
               const lotLabel = getLotLabel(lot.id);
               const isEditing = editingRowId === lot.id;
               
+              const isStaged = stagedAction && stagedAction.pileName === `Pile ${pileNumber}` && stagedAction.sublotName === subLabel;
+              
               const isLastInPile = subLabel === "E";
               const borderClass = isLastInPile ? "border-b-2 border-[#003B70]/30" : "border-b border-slate-200";
               
@@ -234,6 +273,7 @@ export function SpreadsheetTable({
               return (
                 <tr
                   key={lot.id}
+                  id={`row-${pileNumber}-${subLabel}`}
                   className={`group transition-colors ${borderClass} ${rowVisualClass}`}
                 >
                   {/* S.No column — sticky */}
@@ -255,7 +295,7 @@ export function SpreadsheetTable({
                   </td>
 
                   {/* GCV */}
-                  <td className="px-3 py-2">
+                  <td className={`px-3 py-2 ${isStaged ? 'marching-ants-cell font-bold shadow-inner' : ''}`}>
                     {isEditing ? (
                       <input
                         type="number"
@@ -267,14 +307,14 @@ export function SpreadsheetTable({
                       />
                     ) : (
                       <TruncatedCell
-                        value={lot.gcv}
-                        className="font-mono text-sm"
+                        value={isStaged ? stagedAction.newGcv : lot.gcv}
+                        className={`font-mono text-sm ${isStaged ? 'text-[#003B70]' : ''}`}
                       />
                     )}
                   </td>
 
                   {/* Quantity */}
-                  <td className="px-3 py-2">
+                  <td className={`px-3 py-2 ${isStaged ? 'marching-ants-cell font-bold shadow-inner' : ''}`}>
                     {isEditing ? (
                       <input
                         type="number"
@@ -286,8 +326,8 @@ export function SpreadsheetTable({
                       />
                     ) : (
                       <TruncatedCell
-                        value={lot.quantity}
-                        className="font-mono text-sm"
+                        value={isStaged ? stagedAction.newQuantity : lot.quantity}
+                        className={`font-mono text-sm ${isStaged ? 'text-[#003B70]' : ''}`}
                       />
                     )}
                   </td>
