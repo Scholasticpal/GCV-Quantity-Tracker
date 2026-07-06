@@ -247,7 +247,7 @@ export function App() {
     const { changedLot, type, pileName, sublotName, newQuantity, newGcv } = stagedAction;
     try {
       await syncLotToSupabase(changedLot);
-      
+
       let detail = '';
       if (type === 'ADD') detail = `Added ${newQuantity} MT at ${newGcv} GCV`;
       else if (type === 'MERGE') detail = `Merged ${newQuantity} MT at ${newGcv} GCV`;
@@ -262,7 +262,7 @@ export function App() {
           ...(sublotName ? { target_sublot: sublotName } : {})
         }
       });
-      
+
       setStagedAction(null);
       await fetchData();
     } catch (err) {
@@ -276,19 +276,19 @@ export function App() {
     const targetLot = lots[index];
     const pileNum = Math.floor(index / 5) + 1;
     const subLabel = ["A", "B", "C", "D", "E"][index % 5];
-    
+
     let finalGcv = gcv;
     let finalQty = quantity;
     if (targetLot.quantity > 0) {
       finalQty = targetLot.quantity + quantity;
       finalGcv = ((targetLot.gcv * targetLot.quantity) + (gcv * quantity)) / finalQty;
     }
-    
-    setStagedAction({ 
-      type: 'ADD', 
-      pileName: `Pile ${pileNum}`, 
-      sublotName: subLabel, 
-      newGcv: Math.round(finalGcv), 
+
+    setStagedAction({
+      type: 'ADD',
+      pileName: `Pile ${pileNum}`,
+      sublotName: subLabel,
+      newGcv: Math.round(finalGcv),
       newQuantity: finalQty,
       changedLot: { ...targetLot, gcv: Math.round(finalGcv), quantity: finalQty, lotsAdded: targetLot.lotsAdded + 1 }
     });
@@ -298,15 +298,15 @@ export function App() {
     const targetLot = lots[lotIndex];
     const pileNum = Math.floor(lotIndex / 5) + 1;
     const subLabel = ["A", "B", "C", "D", "E"][lotIndex % 5];
-    
+
     const finalQty = targetLot.quantity + quantity;
     const finalGcv = ((targetLot.gcv * targetLot.quantity) + (gcv * quantity)) / finalQty;
 
-    setStagedAction({ 
-      type: 'MERGE', 
-      pileName: `Pile ${pileNum}`, 
-      sublotName: subLabel, 
-      newGcv: Math.round(finalGcv), 
+    setStagedAction({
+      type: 'MERGE',
+      pileName: `Pile ${pileNum}`,
+      sublotName: subLabel,
+      newGcv: Math.round(finalGcv),
       newQuantity: finalQty,
       changedLot: { ...targetLot, gcv: Math.round(finalGcv), quantity: finalQty, lotsAdded: targetLot.lotsAdded + 1 }
     });
@@ -316,13 +316,13 @@ export function App() {
     const targetLot = lots[lotIndex];
     const pileNum = Math.floor(lotIndex / 5) + 1;
     const subLabel = ["A", "B", "C", "D", "E"][lotIndex % 5];
-    
+
     const finalQty = Math.max(0, targetLot.quantity - quantity);
 
-    setStagedAction({ 
-      type: 'SUBTRACT', 
-      pileName: `Pile ${pileNum}`, 
-      sublotName: subLabel, 
+    setStagedAction({
+      type: 'SUBTRACT',
+      pileName: `Pile ${pileNum}`,
+      sublotName: subLabel,
       newGcv: targetLot.gcv,
       newQuantity: finalQty,
       changedLot: { ...targetLot, quantity: finalQty, lotsSubtracted: targetLot.lotsSubtracted + 1 }
@@ -355,8 +355,8 @@ export function App() {
       const index = id - 1;
       const pileName = `Pile ${Math.floor(index / 5) + 1}`;
       const sublotName = ["A", "B", "C", "D", "E"][index % 5];
-      await supabase.rpc('log_activity', { 
-        p_category: 'DATA_ENTRY', 
+      await supabase.rpc('log_activity', {
+        p_category: 'DATA_ENTRY',
         p_detail: `Updated: ${changeString}`,
         p_metadata: { action_type: 'Inline Edit', target_pile: pileName, target_sublot: sublotName }
       });
@@ -390,8 +390,8 @@ export function App() {
       const index = id - 1;
       const pileName = `Pile ${Math.floor(index / 5) + 1}`;
       const sublotName = ["A", "B", "C", "D", "E"][index % 5];
-      await supabase.rpc('log_activity', { 
-        p_category: 'DATA_ENTRY', 
+      await supabase.rpc('log_activity', {
+        p_category: 'DATA_ENTRY',
         p_detail: 'Cleared lot data to 0',
         p_metadata: { action_type: 'Reset Lot', target_pile: pileName, target_sublot: sublotName }
       });
@@ -434,9 +434,9 @@ export function App() {
       const failed = results.find((r) => r.error);
       if (failed?.error) throw failed.error;
 
-      await supabase.rpc('log_activity', { 
-        p_category: 'SYSTEM', 
-        p_detail: 'Loaded historical snapshot', 
+      await supabase.rpc('log_activity', {
+        p_category: 'SYSTEM',
+        p_detail: 'Loaded historical snapshot',
         p_metadata: { action_type: 'Load State' }
       });
     } catch (error) {
@@ -462,8 +462,8 @@ export function App() {
       if (selectedDate === date) {
         setSelectedDate(null);
       }
-      await supabase.rpc('log_activity', { 
-        p_category: 'DATA_ENTRY', 
+      await supabase.rpc('log_activity', {
+        p_category: 'DATA_ENTRY',
         p_detail: `Deleted historical state for ${date}`
       });
     } catch (error) {
@@ -609,7 +609,7 @@ export function App() {
                 {session.user.email}
               </span>
             )}
-            
+
             {canAccessAdmin && (
               <button
                 onClick={() => {
@@ -675,8 +675,8 @@ export function App() {
                 <button
                   onClick={() => setActiveTab("editor")}
                   className={`px-6 py-3 text-sm transition-colors cursor-pointer -mb-px ${activeTab === "editor"
-                      ? "border-b-2 border-[#003B70] text-[#003B70] font-semibold bg-transparent"
-                      : "border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium"
+                    ? "border-b-2 border-[#003B70] text-[#003B70] font-semibold bg-transparent"
+                    : "border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium"
                     }`}
                 >
                   Editor
@@ -684,8 +684,8 @@ export function App() {
                 <button
                   onClick={() => setActiveTab("history")}
                   className={`px-6 py-3 text-sm transition-colors cursor-pointer -mb-px ${activeTab === "history"
-                      ? "border-b-2 border-[#003B70] text-[#003B70] font-semibold bg-transparent"
-                      : "border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium"
+                    ? "border-b-2 border-[#003B70] text-[#003B70] font-semibold bg-transparent"
+                    : "border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium"
                     }`}
                 >
                   Date History
@@ -741,6 +741,15 @@ export function App() {
             )}
           </div>
         )}
+        <footer className="w-full bg-white border-t border-slate-200 mt-16 py-6 px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left shrink-0 text-xs text-slate-500 font-medium font-['Inter']">
+          <p>&copy; {new Date().getFullYear()} GCV & Quantity Manager. All rights reserved.</p>
+          <p className="text-slate-600">Conceptualized & Developed by <span className="font-bold text-[#003B70]">Dr. Vijay Kumar Garg</span></p>
+          <div className="flex items-center justify-center gap-3">
+            <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div> System Operational</span>
+            <span className="text-slate-300">|</span>
+            <span className="font-mono text-slate-400">v1.0.0</span>
+          </div>
+        </footer>
       </main>
     </div>
   );
