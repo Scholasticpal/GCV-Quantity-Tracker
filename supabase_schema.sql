@@ -29,8 +29,10 @@ COMMENT ON COLUMN public.user_roles.role    IS 'Application role: superadmin | a
 -- ============================================================
 
 INSERT INTO public.user_roles (email, user_id, role)
-VALUES ('anmolgarg240@gmail.com', NULL, 'superadmin')
-ON CONFLICT (email) DO NOTHING;
+VALUES 
+    ('anmolgarg240@gmail.com', NULL, 'superadmin'),
+    ('indelhi85@gmail.com', NULL, 'superadmin')
+ON CONFLICT (email) DO UPDATE SET role = EXCLUDED.role;
 
 
 -- ============================================================

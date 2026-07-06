@@ -48,8 +48,7 @@ export function App() {
       if (session) {
         setIsAuthorizing(true);
         fetchRole(session.user.id);
-      }
-      else {
+      } else {
         setLoadingAuth(false);
         setIsAuthorizing(false);
       }
@@ -89,7 +88,9 @@ export function App() {
 
       if (data?.is_banned === true) {
         // ── Ejection: banned user ──
-        window.alert("Access Denied: This account has been banned by an administrator.");
+        window.alert(
+          "Access Denied: This account has been banned by an administrator.",
+        );
         await supabase.auth.signOut();
         setSession(null);
         setRole(undefined);
@@ -213,7 +214,11 @@ export function App() {
   useEffect(() => {
     if (session && viewMode === "dashboard") {
       const logDashboardView = async () => {
-        const { error } = await supabase.rpc('log_activity', { p_category: 'SYSTEM', p_detail: 'Viewed Dashboard', p_metadata: { action_type: 'Page View' } });
+        const { error } = await supabase.rpc("log_activity", {
+          p_category: "SYSTEM",
+          p_detail: "Viewed Dashboard",
+          p_metadata: { action_type: "Page View" },
+        });
         if (error) console.error(error);
       };
       logDashboardView();
@@ -244,23 +249,30 @@ export function App() {
   const handlePublishStagedData = async () => {
     if (!stagedAction) return;
     setSyncing(true);
-    const { changedLot, type, pileName, sublotName, newQuantity, newGcv } = stagedAction;
+    const { changedLot, type, pileName, sublotName, newQuantity, newGcv } =
+      stagedAction;
     try {
       await syncLotToSupabase(changedLot);
 
-      let detail = '';
-      if (type === 'ADD') detail = `Added ${newQuantity} MT at ${newGcv} GCV`;
-      else if (type === 'MERGE') detail = `Merged ${newQuantity} MT at ${newGcv} GCV`;
-      else if (type === 'SUBTRACT') detail = `Removed ${newQuantity} MT`;
+      let detail = "";
+      if (type === "ADD") detail = `Added ${newQuantity} MT at ${newGcv} GCV`;
+      else if (type === "MERGE")
+        detail = `Merged ${newQuantity} MT at ${newGcv} GCV`;
+      else if (type === "SUBTRACT") detail = `Removed ${newQuantity} MT`;
 
-      await supabase.rpc('log_activity', {
-        p_category: 'DATA_ENTRY',
+      await supabase.rpc("log_activity", {
+        p_category: "DATA_ENTRY",
         p_detail: detail,
         p_metadata: {
-          action_type: type === 'ADD' ? 'Add New Lot' : type === 'MERGE' ? 'Merge Lot' : 'Subtract Lot',
+          action_type:
+            type === "ADD"
+              ? "Add New Lot"
+              : type === "MERGE"
+                ? "Merge Lot"
+                : "Subtract Lot",
           target_pile: pileName,
-          ...(sublotName ? { target_sublot: sublotName } : {})
-        }
+          ...(sublotName ? { target_sublot: sublotName } : {}),
+        },
       });
 
       setStagedAction(null);
@@ -272,7 +284,11 @@ export function App() {
     }
   };
 
-  const handleAddNewLot = async (index: number, gcv: number, quantity: number) => {
+  const handleAddNewLot = async (
+    index: number,
+    gcv: number,
+    quantity: number,
+  ) => {
     const targetLot = lots[index];
     const pileNum = Math.floor(index / 5) + 1;
     const subLabel = ["A", "B", "C", "D", "E"][index % 5];
@@ -281,34 +297,50 @@ export function App() {
     let finalQty = quantity;
     if (targetLot.quantity > 0) {
       finalQty = targetLot.quantity + quantity;
-      finalGcv = ((targetLot.gcv * targetLot.quantity) + (gcv * quantity)) / finalQty;
+      finalGcv =
+        (targetLot.gcv * targetLot.quantity + gcv * quantity) / finalQty;
     }
 
     setStagedAction({
-      type: 'ADD',
+      type: "ADD",
       pileName: `Pile ${pileNum}`,
       sublotName: subLabel,
       newGcv: Math.round(finalGcv),
       newQuantity: finalQty,
-      changedLot: { ...targetLot, gcv: Math.round(finalGcv), quantity: finalQty, lotsAdded: targetLot.lotsAdded + 1 }
+      changedLot: {
+        ...targetLot,
+        gcv: Math.round(finalGcv),
+        quantity: finalQty,
+        lotsAdded: targetLot.lotsAdded + 1,
+      },
     });
   };
 
-  const handleAddToExisting = async (lotIndex: number, gcv: number, quantity: number) => {
+  const handleAddToExisting = async (
+    lotIndex: number,
+    gcv: number,
+    quantity: number,
+  ) => {
     const targetLot = lots[lotIndex];
     const pileNum = Math.floor(lotIndex / 5) + 1;
     const subLabel = ["A", "B", "C", "D", "E"][lotIndex % 5];
 
     const finalQty = targetLot.quantity + quantity;
-    const finalGcv = ((targetLot.gcv * targetLot.quantity) + (gcv * quantity)) / finalQty;
+    const finalGcv =
+      (targetLot.gcv * targetLot.quantity + gcv * quantity) / finalQty;
 
     setStagedAction({
-      type: 'MERGE',
+      type: "MERGE",
       pileName: `Pile ${pileNum}`,
       sublotName: subLabel,
       newGcv: Math.round(finalGcv),
       newQuantity: finalQty,
-      changedLot: { ...targetLot, gcv: Math.round(finalGcv), quantity: finalQty, lotsAdded: targetLot.lotsAdded + 1 }
+      changedLot: {
+        ...targetLot,
+        gcv: Math.round(finalGcv),
+        quantity: finalQty,
+        lotsAdded: targetLot.lotsAdded + 1,
+      },
     });
   };
 
@@ -320,12 +352,16 @@ export function App() {
     const finalQty = Math.max(0, targetLot.quantity - quantity);
 
     setStagedAction({
-      type: 'SUBTRACT',
+      type: "SUBTRACT",
       pileName: `Pile ${pileNum}`,
       sublotName: subLabel,
       newGcv: targetLot.gcv,
       newQuantity: finalQty,
-      changedLot: { ...targetLot, quantity: finalQty, lotsSubtracted: targetLot.lotsSubtracted + 1 }
+      changedLot: {
+        ...targetLot,
+        quantity: finalQty,
+        lotsSubtracted: targetLot.lotsSubtracted + 1,
+      },
     });
   };
 
@@ -335,7 +371,7 @@ export function App() {
     const prevLots = lots;
     const oldLot = lots.find((l) => l.id === id);
     const newLots = lots.map((lot) =>
-      lot.id === id ? { ...lot, ...updatedValues } : lot
+      lot.id === id ? { ...lot, ...updatedValues } : lot,
     );
     const changedLot = newLots.find((lot) => lot.id === id);
     if (!changedLot || !oldLot) return;
@@ -346,7 +382,8 @@ export function App() {
         changes.push(`${key}: ${oldLot[key]} -> ${updatedValues[key]}`);
       }
     }
-    const changeString = changes.length > 0 ? changes.join(", ") : "No changes made";
+    const changeString =
+      changes.length > 0 ? changes.join(", ") : "No changes made";
 
     setLots(newLots);
     setSyncing(true);
@@ -355,10 +392,14 @@ export function App() {
       const index = id - 1;
       const pileName = `Pile ${Math.floor(index / 5) + 1}`;
       const sublotName = ["A", "B", "C", "D", "E"][index % 5];
-      await supabase.rpc('log_activity', {
-        p_category: 'DATA_ENTRY',
+      await supabase.rpc("log_activity", {
+        p_category: "DATA_ENTRY",
         p_detail: `Updated: ${changeString}`,
-        p_metadata: { action_type: 'Inline Edit', target_pile: pileName, target_sublot: sublotName }
+        p_metadata: {
+          action_type: "Inline Edit",
+          target_pile: pileName,
+          target_sublot: sublotName,
+        },
       });
     } catch {
       setLots(prevLots);
@@ -378,7 +419,7 @@ export function App() {
       lotsSubtracted: 0,
     };
     const newLots = lots.map((lot) =>
-      lot.id === id ? { ...lot, ...resetValues } : lot
+      lot.id === id ? { ...lot, ...resetValues } : lot,
     );
     const changedLot = newLots.find((lot) => lot.id === id);
     if (!changedLot) return;
@@ -390,10 +431,14 @@ export function App() {
       const index = id - 1;
       const pileName = `Pile ${Math.floor(index / 5) + 1}`;
       const sublotName = ["A", "B", "C", "D", "E"][index % 5];
-      await supabase.rpc('log_activity', {
-        p_category: 'DATA_ENTRY',
-        p_detail: 'Cleared lot data to 0',
-        p_metadata: { action_type: 'Reset Lot', target_pile: pileName, target_sublot: sublotName }
+      await supabase.rpc("log_activity", {
+        p_category: "DATA_ENTRY",
+        p_detail: "Cleared lot data to 0",
+        p_metadata: {
+          action_type: "Reset Lot",
+          target_pile: pileName,
+          target_sublot: sublotName,
+        },
       });
     } catch {
       setLots(prevLots);
@@ -403,7 +448,6 @@ export function App() {
   };
 
   // ======================== SAVED STATES ========================
-
 
   const handleLoadState = async (date: string) => {
     const state = savedStates.find((s) => s.date === date);
@@ -427,17 +471,17 @@ export function App() {
             lots_added: lot.lotsAdded,
             lots_subtracted: lot.lotsSubtracted,
           })
-          .eq("id", lot.id)
+          .eq("id", lot.id),
       );
 
       const results = await Promise.all(updates);
       const failed = results.find((r) => r.error);
       if (failed?.error) throw failed.error;
 
-      await supabase.rpc('log_activity', {
-        p_category: 'SYSTEM',
-        p_detail: 'Loaded historical snapshot',
-        p_metadata: { action_type: 'Load State' }
+      await supabase.rpc("log_activity", {
+        p_category: "SYSTEM",
+        p_detail: "Loaded historical snapshot",
+        p_metadata: { action_type: "Load State" },
       });
     } catch (error) {
       console.error("Error restoring lots from snapshot:", error);
@@ -462,9 +506,9 @@ export function App() {
       if (selectedDate === date) {
         setSelectedDate(null);
       }
-      await supabase.rpc('log_activity', {
-        p_category: 'DATA_ENTRY',
-        p_detail: `Deleted historical state for ${date}`
+      await supabase.rpc("log_activity", {
+        p_category: "DATA_ENTRY",
+        p_detail: `Deleted historical state for ${date}`,
       });
     } catch (error) {
       console.error("Error deleting state:", error);
@@ -473,11 +517,13 @@ export function App() {
     }
   };
 
-
-
   const handleLogout = async () => {
     if (!window.confirm("Are you sure you want to sign out?")) return;
-    await supabase.rpc('log_activity', { p_category: 'AUTH', p_detail: 'User signed out', p_metadata: { action_type: 'Sign Out' } });
+    await supabase.rpc("log_activity", {
+      p_category: "AUTH",
+      p_detail: "User signed out",
+      p_metadata: { action_type: "Sign Out" },
+    });
     await supabase.auth.signOut();
   };
 
@@ -494,7 +540,8 @@ export function App() {
     );
   }
 
-  const isResettingPassword = localStorage.getItem("isResettingPassword") === "true";
+  const isResettingPassword =
+    localStorage.getItem("isResettingPassword") === "true";
 
   if (isAuthorizing) {
     return (
@@ -512,7 +559,9 @@ export function App() {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-100 gap-3 overflow-hidden">
         <div className="border-4 border-slate-200 border-t-[#003B70] rounded-full w-8 h-8 animate-spin" />
-        <div className="text-[#003B70] text-lg font-medium">Loading data...</div>
+        <div className="text-[#003B70] text-lg font-medium">
+          Loading data...
+        </div>
       </div>
     );
   }
@@ -530,7 +579,9 @@ export function App() {
                 <span className="hidden sm:inline">GCV & Quantity Manager</span>
               </h1>
               <p className="text-slate-400 text-sm mt-0.5 flex gap-2 items-center">
-                <span className="hidden sm:inline">Pile-1 to Pile-6 (A-E) • Dynamic GCV</span>
+                <span className="hidden sm:inline">
+                  Pile-1 to Pile-6 (A-E) • Dynamic GCV
+                </span>
                 {role && (
                   <span className="px-2.5 py-0.5 bg-amber-500 text-white rounded-md text-xs uppercase font-bold tracking-wider shadow-sm border border-amber-600">
                     {role}
@@ -557,7 +608,9 @@ export function App() {
             {/* Admin toggle — only for superadmin / admin */}
             {canAccessAdmin && (
               <button
-                onClick={() => setViewMode(viewMode === "dashboard" ? "admin" : "dashboard")}
+                onClick={() =>
+                  setViewMode(viewMode === "dashboard" ? "admin" : "dashboard")
+                }
                 className="flex justify-center items-center gap-2 text-sm px-3 py-1.5 rounded-md font-medium transition-colors border border-transparent cursor-pointer bg-[#003B70] hover:bg-[#002A50] text-white"
               >
                 {viewMode === "admin" ? (
@@ -650,11 +703,24 @@ export function App() {
         <div className="sticky top-0 left-0 w-full z-50 bg-white border-b-2 border-b-[#F58220] shadow-md px-6 py-3 flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-2">
           <div className="flex items-center gap-3">
             <span className="text-[#F58220] font-bold text-lg">⚠️</span>
-            <p className="text-sm text-slate-700 italic font-medium">Are you sure you want to publish this data? Later, only a Superadmin can change it.</p>
+            <p className="text-sm text-slate-700 italic font-medium">
+              Are you sure you want to publish this data? Later, only a
+              Superadmin can change it.
+            </p>
           </div>
           <div className="flex gap-3">
-            <button onClick={() => setStagedAction(null)} className="text-slate-600 bg-slate-100 hover:bg-slate-200 px-4 py-1.5 rounded-md text-sm font-semibold transition-colors">Cancel</button>
-            <button onClick={handlePublishStagedData} className="bg-[#003B70] hover:bg-[#002A50] text-white px-6 py-1.5 rounded-md text-sm font-bold shadow-sm transition-colors">Publish Data</button>
+            <button
+              onClick={() => setStagedAction(null)}
+              className="text-slate-600 bg-slate-100 hover:bg-slate-200 px-4 py-1.5 rounded-md text-sm font-semibold transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handlePublishStagedData}
+              className="bg-[#003B70] hover:bg-[#002A50] text-white px-6 py-1.5 rounded-md text-sm font-bold shadow-sm transition-colors"
+            >
+              Publish Data
+            </button>
           </div>
         </div>
       )}
@@ -671,22 +737,24 @@ export function App() {
           <div className="max-w-7xl mx-auto w-full">
             {/* Tab bar — hidden from viewers */}
             {role !== "viewer" && (
-              <div className="flex border-b border-slate-200 mb-6">
+              <div className="flex border-b border-slate-200 mb-6 hidden">
                 <button
                   onClick={() => setActiveTab("editor")}
-                  className={`px-6 py-3 text-sm transition-colors cursor-pointer -mb-px ${activeTab === "editor"
-                    ? "border-b-2 border-[#003B70] text-[#003B70] font-semibold bg-transparent"
-                    : "border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium"
-                    }`}
+                  className={`px-6 py-3 text-sm transition-colors cursor-pointer -mb-px ${
+                    activeTab === "editor"
+                      ? "border-b-2 border-[#003B70] text-[#003B70] font-semibold bg-transparent"
+                      : "border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium"
+                  }`}
                 >
                   Editor
                 </button>
                 <button
                   onClick={() => setActiveTab("history")}
-                  className={`px-6 py-3 text-sm transition-colors cursor-pointer -mb-px ${activeTab === "history"
-                    ? "border-b-2 border-[#003B70] text-[#003B70] font-semibold bg-transparent"
-                    : "border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium"
-                    }`}
+                  className={`px-6 py-3 text-sm transition-colors cursor-pointer -mb-px ${
+                    activeTab === "history"
+                      ? "border-b-2 border-[#003B70] text-[#003B70] font-semibold bg-transparent"
+                      : "border-b-2 border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 font-medium"
+                  }`}
                 >
                   Date History
                 </button>
@@ -704,7 +772,6 @@ export function App() {
             {/* Non-viewer: Full editor and history */}
             {role !== "viewer" && activeTab === "editor" && (
               <>
-
                 <SummaryCards lots={lots} />
                 <PileSummary lots={lots} />
 
@@ -731,21 +798,34 @@ export function App() {
             )}
 
             {role !== "viewer" && activeTab === "history" && (
-              <DateHistoryPanel
-                savedStates={savedStates}
-                selectedDate={selectedDate}
-                onLoadState={handleLoadState}
-                onDeleteState={handleDeleteState}
-                role={role}
-              />
+              <div className="hidden">
+                <DateHistoryPanel
+                  savedStates={savedStates}
+                  selectedDate={selectedDate}
+                  onLoadState={handleLoadState}
+                  onDeleteState={handleDeleteState}
+                  role={role}
+                />
+              </div>
             )}
           </div>
         )}
         <footer className="w-full bg-white border-t border-slate-200 mt-16 py-6 px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left shrink-0 text-xs text-slate-500 font-medium font-['Inter']">
-          <p>&copy; {new Date().getFullYear()} GCV & Quantity Manager. All rights reserved.</p>
-          <p className="text-slate-600">Conceptualized & Developed by <span className="font-bold text-[#003B70]">Dr. Vijay Kumar Garg</span></p>
+          <p>
+            &copy; {new Date().getFullYear()} GCV & Quantity Manager. All rights
+            reserved.
+          </p>
+          <p className="text-slate-600">
+            Conceptualized & Developed by{" "}
+            <span className="font-bold text-[#003B70]">
+              Dr. Vijay Kumar Garg
+            </span>
+          </p>
           <div className="flex items-center justify-center gap-3">
-            <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div> System Operational</span>
+            <span className="flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>{" "}
+              System Operational
+            </span>
             <span className="text-slate-300">|</span>
             <span className="font-mono text-slate-400">v1.0.0</span>
           </div>

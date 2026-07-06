@@ -167,7 +167,9 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: rpcError } = await supabase.rpc("get_admin_users_view");
+      const { data, error: rpcError } = await supabase.rpc(
+        "get_admin_users_view",
+      );
       if (rpcError) throw rpcError;
       if (data) setUsers(data as UserRecord[]);
     } catch (err: any) {
@@ -186,26 +188,26 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
   useEffect(() => {
     const fetchLogs = async () => {
       const { data } = await supabase
-        .from('activity_logs')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .from("activity_logs")
+        .select("*")
+        .order("created_at", { ascending: false });
       if (data) setLogs(data as LogRecord[]);
     };
 
     fetchLogs();
 
     const channel = supabase
-      .channel('realtime_logs')
+      .channel("realtime_logs")
       .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'activity_logs' },
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "activity_logs" },
         (payload) => {
           setLogs((prev) => {
             const newLog = payload.new as LogRecord;
-            if (prev.some(log => log.id === newLog.id)) return prev;
+            if (prev.some((log) => log.id === newLog.id)) return prev;
             return [newLog, ...prev];
           });
-        }
+        },
       )
       .subscribe();
 
@@ -219,9 +221,18 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
   const handleChangeRole = async (email: string, newRole: string) => {
     setActionLoading(email);
     try {
-      const { error } = await supabase.rpc('admin_update_role', { target_email: email, new_role: newRole });
+      const { error } = await supabase.rpc("admin_update_role", {
+        target_email: email,
+        new_role: newRole,
+      });
       if (error) throw error;
-      await supabase.rpc('log_activity', { p_category: 'ADMIN_ACTION', p_detail: `Changed role of ${email} to ${newRole}`, p_metadata: { action_type: newRole === 'admin' ? 'Make Admin' : 'Dismiss Admin' } });
+      await supabase.rpc("log_activity", {
+        p_category: "ADMIN_ACTION",
+        p_detail: `Changed role of ${email} to ${newRole}`,
+        p_metadata: {
+          action_type: newRole === "admin" ? "Make Admin" : "Dismiss Admin",
+        },
+      });
       await fetchUsers();
     } catch (err: any) {
       console.error("Error changing role:", err);
@@ -232,14 +243,24 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
   };
 
   const handleBanUser = async (email: string) => {
-    const typed = window.prompt(`To ban this user, type their email:\n${email}`);
-    if (!typed || typed.trim().toLowerCase() !== email.trim().toLowerCase()) return;
+    const typed = window.prompt(
+      `To ban this user, type their email:\n${email}`,
+    );
+    if (!typed || typed.trim().toLowerCase() !== email.trim().toLowerCase())
+      return;
 
     setActionLoading(email);
     try {
-      const { error } = await supabase.rpc('admin_set_ban', { target_email: email, ban_status: true });
+      const { error } = await supabase.rpc("admin_set_ban", {
+        target_email: email,
+        ban_status: true,
+      });
       if (error) throw error;
-      await supabase.rpc('log_activity', { p_category: 'ADMIN_ACTION', p_detail: `Banned user ${email}`, p_metadata: { action_type: 'Ban User' } });
+      await supabase.rpc("log_activity", {
+        p_category: "ADMIN_ACTION",
+        p_detail: `Banned user ${email}`,
+        p_metadata: { action_type: "Ban User" },
+      });
       await fetchUsers();
     } catch (err: any) {
       console.error("Error banning user:", err);
@@ -253,9 +274,16 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
     if (!window.confirm(`Are you sure you want to unban ${email}?`)) return;
     setActionLoading(email);
     try {
-      const { error } = await supabase.rpc('admin_set_ban', { target_email: email, ban_status: false });
+      const { error } = await supabase.rpc("admin_set_ban", {
+        target_email: email,
+        ban_status: false,
+      });
       if (error) throw error;
-      await supabase.rpc('log_activity', { p_category: 'ADMIN_ACTION', p_detail: `Unbanned user ${email}`, p_metadata: { action_type: 'Unban User' } });
+      await supabase.rpc("log_activity", {
+        p_category: "ADMIN_ACTION",
+        p_detail: `Unbanned user ${email}`,
+        p_metadata: { action_type: "Unban User" },
+      });
       await fetchUsers();
     } catch (err: any) {
       console.error("Error unbanning user:", err);
@@ -266,8 +294,8 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
   };
 
   const handleClearLogs = async () => {
-    if (window.confirm('Clear all logs?')) {
-      await supabase.rpc('dev_clear_logs');
+    if (window.confirm("Clear all logs?")) {
+      await supabase.rpc("dev_clear_logs");
       setLogs([]);
     }
   };
@@ -297,7 +325,11 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
           {user.role === "admin" && (
             <button
               onClick={() => {
-                if (window.confirm("Are you sure you want to dismiss admin to user?")) {
+                if (
+                  window.confirm(
+                    "Are you sure you want to dismiss admin to user?",
+                  )
+                ) {
                   handleChangeRole(user.email, "viewer");
                 }
               }}
@@ -309,7 +341,11 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
           {user.role === "viewer" && (
             <button
               onClick={() => {
-                if (window.confirm("Are you sure you want to make this user as admin?")) {
+                if (
+                  window.confirm(
+                    "Are you sure you want to make this user as admin?",
+                  )
+                ) {
                   handleChangeRole(user.email, "admin");
                 }
               }}
@@ -337,7 +373,11 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
           <div className="flex items-center justify-end gap-2 flex-nowrap whitespace-nowrap">
             <button
               onClick={() => {
-                if (window.confirm("Are you sure you want to make this user as admin?")) {
+                if (
+                  window.confirm(
+                    "Are you sure you want to make this user as admin?",
+                  )
+                ) {
                   handleChangeRole(user.email, "admin");
                 }
               }}
@@ -372,17 +412,18 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
     return logs.filter((log) => {
       // Date filtering
       if (dateFrom && log.created_at < dateFrom) return false;
-      if (dateTo && log.created_at > dateTo + 'T23:59:59Z') return false;
+      if (dateTo && log.created_at > dateTo + "T23:59:59Z") return false;
 
       // Search filtering
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        const searchString = `${log.user_email} ${log.action_category} ${log.action_detail}`.toLowerCase();
-        
+        const searchString =
+          `${log.user_email} ${log.action_category} ${log.action_detail}`.toLowerCase();
+
         const orBlocks = query.split(" or ");
-        const matches = orBlocks.some(block => {
+        const matches = orBlocks.some((block) => {
           const terms = block.trim().split(/\s+/);
-          return terms.every(term => searchString.includes(term));
+          return terms.every((term) => searchString.includes(term));
         });
 
         if (!matches) return false;
@@ -392,8 +433,14 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
     });
   }, [logs, searchQuery, dateFrom, dateTo]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / LOGS_PER_PAGE));
-  const paginatedLogs = filteredLogs.slice((logPage - 1) * LOGS_PER_PAGE, logPage * LOGS_PER_PAGE);
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredLogs.length / LOGS_PER_PAGE),
+  );
+  const paginatedLogs = filteredLogs.slice(
+    (logPage - 1) * LOGS_PER_PAGE,
+    logPage * LOGS_PER_PAGE,
+  );
 
   // Reset pagination on filter change
   useEffect(() => {
@@ -408,7 +455,9 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <ShieldCheck className="w-5 h-5 text-[#003B70]" />
-            <h2 className="text-base font-bold text-slate-800 tracking-tight">Admin Panel</h2>
+            <h2 className="text-base font-bold text-slate-800 tracking-tight">
+              Admin Panel
+            </h2>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -460,7 +509,9 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs text-slate-500">
             <span>Total Active</span>
-            <span className="font-bold text-slate-700">{activeUsers.length}</span>
+            <span className="font-bold text-slate-700">
+              {activeUsers.length}
+            </span>
           </div>
           <div className="flex justify-between text-xs text-slate-500">
             <span>Banned</span>
@@ -510,7 +561,6 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
 
         {/* Content Area */}
         <div className="p-4 sm:p-6 lg:p-8">
-          
           {/* ==================== USERS TAB ==================== */}
           {activeTab === "users" && (
             <>
@@ -566,7 +616,10 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                     </thead>
                     <tbody>
                       {activeUsers.map((user, idx) => (
-                        <tr key={user.email} className="border-b border-slate-100 last:border-b-0 even:bg-slate-50 hover:bg-blue-50/30 transition-colors">
+                        <tr
+                          key={user.email}
+                          className="border-b border-slate-100 last:border-b-0 even:bg-slate-50 hover:bg-blue-50/30 transition-colors"
+                        >
                           {/* S.No */}
                           <td className="px-4 py-3 text-slate-400 font-mono text-xs">
                             {idx + 1}
@@ -574,7 +627,10 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
 
                           {/* Email ID */}
                           <td className="px-4 py-2.5">
-                            <span className="text-slate-800 font-medium truncate max-w-[140px] sm:max-w-[200px] lg:max-w-none lg:overflow-visible lg:whitespace-normal break-all block transition-all" title={user.email}>
+                            <span
+                              className="text-slate-800 font-medium truncate max-w-[140px] sm:max-w-[200px] lg:max-w-none lg:overflow-visible lg:whitespace-normal break-all block transition-all"
+                              title={user.email}
+                            >
                               {user.email}
                             </span>
                           </td>
@@ -609,7 +665,9 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                 <>
                   <div className="flex items-center gap-2.5 mt-10 mb-6">
                     <Ban className="w-5 h-5 text-red-500" />
-                    <h2 className="text-lg font-bold text-slate-800">Banned Accounts</h2>
+                    <h2 className="text-lg font-bold text-slate-800">
+                      Banned Accounts
+                    </h2>
                     <span className="ml-1 text-xs text-red-400 font-medium">
                       ({bannedUsers.length})
                     </span>
@@ -638,7 +696,10 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                       </thead>
                       <tbody>
                         {bannedUsers.map((user, idx) => (
-                          <tr key={user.email} className="border-b border-red-100 last:border-b-0 even:bg-slate-50 hover:bg-blue-50/30 transition-colors">
+                          <tr
+                            key={user.email}
+                            className="border-b border-red-100 last:border-b-0 even:bg-slate-50 hover:bg-blue-50/30 transition-colors"
+                          >
                             {/* S.No */}
                             <td className="px-4 py-3 text-slate-400 font-mono text-xs">
                               {idx + 1}
@@ -646,7 +707,10 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
 
                             {/* Email ID */}
                             <td className="px-4 py-2.5">
-                              <span className="text-slate-800 font-medium line-through decoration-red-300 truncate max-w-[140px] sm:max-w-[200px] lg:max-w-none lg:overflow-visible lg:whitespace-normal break-all block transition-all" title={user.email}>
+                              <span
+                                className="text-slate-800 font-medium line-through decoration-red-300 truncate max-w-[140px] sm:max-w-[200px] lg:max-w-none lg:overflow-visible lg:whitespace-normal break-all block transition-all"
+                                title={user.email}
+                              >
                                 {user.email}
                               </span>
                             </td>
@@ -681,7 +745,9 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                                   Unban
                                 </button>
                               ) : (
-                                <span className="text-xs text-slate-400 italic">—</span>
+                                <span className="text-xs text-slate-400 italic">
+                                  —
+                                </span>
                               )}
                             </td>
                           </tr>
@@ -701,7 +767,9 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div className="flex items-center gap-2.5">
                   <Activity className="w-5 h-5 text-[#003B70]" />
-                  <h2 className="text-lg font-bold text-slate-800">System Logs</h2>
+                  <h2 className="text-lg font-bold text-slate-800">
+                    System Logs
+                  </h2>
                 </div>
                 {isSuperadmin && (
                   <button
@@ -725,7 +793,9 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                 />
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-slate-700">From</span>
+                    <span className="text-sm font-medium text-slate-700">
+                      From
+                    </span>
                     <input
                       type="date"
                       value={dateFrom}
@@ -734,7 +804,9 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-slate-700">To</span>
+                    <span className="text-sm font-medium text-slate-700">
+                      To
+                    </span>
                     <input
                       type="date"
                       value={dateTo}
@@ -773,46 +845,70 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                   <tbody>
                     {paginatedLogs.length > 0 ? (
                       paginatedLogs.map((log, idx) => (
-                        <tr key={log.id} className="border-b border-slate-100 last:border-b-0 even:bg-slate-50 hover:bg-blue-50/30 transition-colors">
+                        <tr
+                          key={log.id}
+                          className="border-b border-slate-100 last:border-b-0 even:bg-slate-50 hover:bg-blue-50/30 transition-colors"
+                        >
                           <td className="px-4 py-3 text-slate-400 font-mono text-xs">
                             {(logPage - 1) * LOGS_PER_PAGE + idx + 1}
                           </td>
                           <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
-                            {new Date(log.created_at).toLocaleString('en-IN', {
-                              day: '2-digit', month: 'short', year: 'numeric',
-                              hour: '2-digit', minute: '2-digit'
+                            {new Date(log.created_at).toLocaleString("en-IN", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
                             })}
                           </td>
                           <td className="px-4 py-2.5">
-                            <span className="text-slate-800 font-medium truncate max-w-[120px] md:max-w-[180px] hover:max-w-none hover:whitespace-normal hover:break-all block transition-all" title={log.user_email}>
+                            <span
+                              className="text-slate-800 font-medium truncate max-w-[120px] md:max-w-[180px] hover:max-w-none hover:whitespace-normal hover:break-all block transition-all"
+                              title={log.user_email}
+                            >
                               {log.user_email}
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${getLogCategoryBadgeClasses(log.action_category)}`}>
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${getLogCategoryBadgeClasses(log.action_category)}`}
+                            >
                               {log.action_category}
                             </span>
                           </td>
                           <td className="px-4 py-3">
                             {log.metadata?.action_type ? (
-                              <span className="text-slate-800 font-medium text-xs whitespace-nowrap">{log.metadata.action_type}</span>
+                              <span className="text-slate-800 font-medium text-xs whitespace-nowrap">
+                                {log.metadata.action_type}
+                              </span>
                             ) : (
                               <span className="text-slate-400">—</span>
                             )}
                           </td>
                           <td className="px-4 py-3">
                             {log.metadata?.target_pile && (
-                              <span className={`font-bold mr-2 ${getPileColor(log.metadata.target_pile)}`}>
-                                [{log.metadata.target_pile}{log.metadata.target_sublot ? ` - ${log.metadata.target_sublot}` : ''}]
+                              <span
+                                className={`font-bold mr-2 ${getPileColor(log.metadata.target_pile)}`}
+                              >
+                                [{log.metadata.target_pile}
+                                {log.metadata.target_sublot
+                                  ? ` - ${log.metadata.target_sublot}`
+                                  : ""}
+                                ]
                               </span>
                             )}
-                            <span className="text-slate-600">{log.action_detail}</span>
+                            <span className="text-slate-600">
+                              {log.action_detail}
+                            </span>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={6} className="px-4 py-8 text-center text-sm text-slate-500">
+                        <td
+                          colSpan={6}
+                          className="px-4 py-8 text-center text-sm text-slate-500"
+                        >
                           No logs found matching your criteria.
                         </td>
                       </tr>
@@ -820,16 +916,23 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                   </tbody>
                 </table>
               </div>
-              
+
               {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4 bg-white border border-slate-200 rounded-lg px-4 py-3 shadow-sm">
                   <p className="text-sm text-slate-500">
-                    Showing page <span className="font-semibold text-slate-700">{logPage}</span> of <span className="font-semibold text-slate-700">{totalPages}</span>
+                    Showing page{" "}
+                    <span className="font-semibold text-slate-700">
+                      {logPage}
+                    </span>{" "}
+                    of{" "}
+                    <span className="font-semibold text-slate-700">
+                      {totalPages}
+                    </span>
                   </p>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setLogPage(p => Math.max(1, p - 1))}
+                      onClick={() => setLogPage((p) => Math.max(1, p - 1))}
                       disabled={logPage === 1}
                       className="inline-flex items-center justify-center bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 rounded-md px-3 py-1 transition-colors disabled:cursor-not-allowed cursor-pointer"
                       aria-label="Previous page"
@@ -837,7 +940,9 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
                       <ChevronLeft className="w-5 h-5" />
                     </button>
                     <button
-                      onClick={() => setLogPage(p => Math.min(totalPages, p + 1))}
+                      onClick={() =>
+                        setLogPage((p) => Math.min(totalPages, p + 1))
+                      }
                       disabled={logPage === totalPages}
                       className="inline-flex items-center justify-center bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 rounded-md px-3 py-1 transition-colors disabled:cursor-not-allowed cursor-pointer"
                       aria-label="Next page"
@@ -849,7 +954,6 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
               )}
             </>
           )}
-
         </div>
       </main>
     </div>
