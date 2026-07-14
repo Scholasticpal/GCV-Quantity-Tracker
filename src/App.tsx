@@ -11,7 +11,7 @@ import { initializeLots } from "./utils/lotUtils";
 
 import { supabase } from "./lib/supabase";
 import { Session } from "@supabase/supabase-js";
-import { ShieldCheck, LayoutDashboard, LogOut, Menu } from "lucide-react";
+import { ShieldCheck, LayoutDashboard, LogOut, Menu, Clock, ShieldAlert } from "lucide-react";
 
 export interface SavedState {
   date: string;
@@ -75,6 +75,7 @@ export function App() {
 
     return () => subscription.unsubscribe();
   }, []);
+
 
   const fetchRole = async (userId: string) => {
     try {
@@ -203,16 +204,60 @@ export function App() {
     }
   }, []);
 
-  // Fetch data when session becomes available
+  // Fetch data when session becomes available (skip for pending users — they have no data access)
   useEffect(() => {
-    if (session && !loadingAuth) {
+    if (session && !loadingAuth && role !== "pending") {
       fetchData();
     }
-  }, [session, loadingAuth, fetchData]);
+  }, [session, loadingAuth, role, fetchData]);
+
+  // ── Realtime: auto-refresh role when admin approves a pending user ──
+  useEffect(() => {
+    if (!session) return;
+
+    const channel = supabase
+      .channel("realtime_role_change")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "user_roles",
+          filter: `user_id=eq.${session.user.id}`,
+        },
+        (payload) => {
+          const newRole = (payload.new as any)?.role;
+          const isBanned = (payload.new as any)?.is_banned;
+
+          if (isBanned) {
+            window.alert(
+              "Access Denied: This account has been banned by an administrator.",
+            );
+            supabase.auth.signOut();
+            return;
+          }
+
+          if (newRole) {
+            setRole((prevRole) => {
+              // If transitioning from pending to an active role, refresh data
+              if (prevRole === "pending" && newRole !== "pending") {
+                fetchData();
+              }
+              return newRole;
+            });
+          }
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session, fetchData]);
 
   // ======================== DASHBOARD TRACKING ========================
   useEffect(() => {
-    if (session && viewMode === "dashboard") {
+    if (session && viewMode === "dashboard" && role !== "pending") {
       const logDashboardView = async () => {
         const { error } = await supabase.rpc("log_activity", {
           p_category: "SYSTEM",
@@ -555,7 +600,7 @@ export function App() {
     return <Auth />;
   }
 
-  if (loadingData) {
+  if (loadingData && role !== "pending") {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-slate-100 gap-3 overflow-hidden">
         <div className="border-4 border-slate-200 border-t-[#003B70] rounded-full w-8 h-8 animate-spin" />
@@ -735,8 +780,63 @@ export function App() {
         {/* ─── Dashboard View ─────────────────────────────────── */}
         {viewMode === "dashboard" && (
           <div className="max-w-7xl mx-auto w-full">
-            {/* Tab bar — hidden from viewers */}
-            {role !== "viewer" && (
+            {/* ── Pending Approval Screen ── */}
+            {role === "pending" && (
+              <div className="flex items-center justify-center py-24 px-4">
+                <div className="max-w-lg w-full text-center">
+                  {/* Icon */}
+                  <div className="mx-auto w-20 h-20 rounded-full bg-amber-50 border-2 border-amber-200 flex items-center justify-center mb-6">
+                    <Clock className="w-10 h-10 text-amber-500" />
+                  </div>
+
+                  {/* Heading */}
+                  <h2 className="text-2xl font-bold text-slate-800 mb-3">
+                    Access Pending Approval
+                  </h2>
+
+                  {/* Message */}
+                  <p className="text-slate-500 text-sm leading-relaxed mb-6 max-w-md mx-auto">
+                    Your account has been created successfully. Please contact an
+                    administrator to approve your access to the application.
+                  </p>
+
+                  {/* Info Card */}
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 text-left">
+                    <div className="flex items-start gap-3">
+                      <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-semibold text-amber-800 mb-1">
+                          What happens next?
+                        </p>
+                        <ul className="text-xs text-amber-700 space-y-1.5">
+                          <li className="flex items-start gap-1.5">
+                            <span className="mt-1 w-1 h-1 rounded-full bg-amber-500 shrink-0" />
+                            An admin will review and approve your account
+                          </li>
+                          <li className="flex items-start gap-1.5">
+                            <span className="mt-1 w-1 h-1 rounded-full bg-amber-500 shrink-0" />
+                            Once approved, this page will automatically refresh
+                          </li>
+                          <li className="flex items-start gap-1.5">
+                            <span className="mt-1 w-1 h-1 rounded-full bg-amber-500 shrink-0" />
+                            You'll then have access based on your assigned role
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subtle pulse indicator */}
+                  <div className="mt-8 flex items-center justify-center gap-2 text-slate-400 text-xs">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    Waiting for admin approval…
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tab bar — hidden from viewers and pending */}
+            {role !== "viewer" && role !== "pending" && (
               <div className="flex border-b border-slate-200 mb-6 hidden">
                 <button
                   onClick={() => setActiveTab("editor")}
@@ -769,8 +869,8 @@ export function App() {
               </>
             )}
 
-            {/* Non-viewer: Full editor and history */}
-            {role !== "viewer" && activeTab === "editor" && (
+            {/* Non-viewer, non-pending: Full editor and history */}
+            {role !== "viewer" && role !== "pending" && activeTab === "editor" && (
               <>
                 <SummaryCards lots={lots} />
                 <PileSummary lots={lots} />
@@ -797,7 +897,7 @@ export function App() {
               </>
             )}
 
-            {role !== "viewer" && activeTab === "history" && (
+            {role !== "viewer" && role !== "pending" && activeTab === "history" && (
               <div className="hidden">
                 <DateHistoryPanel
                   savedStates={savedStates}

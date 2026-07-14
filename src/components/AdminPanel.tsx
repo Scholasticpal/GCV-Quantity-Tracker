@@ -12,6 +12,8 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  UserCheck,
+  UserPlus,
 } from "lucide-react";
 import { PILE_THEMES } from "../utils/lotUtils";
 
@@ -42,6 +44,7 @@ const ROLE_SORT_ORDER: Record<string, number> = {
   superadmin: 0,
   admin: 1,
   viewer: 2,
+  pending: 3,
 };
 
 function sortUsers(users: UserRecord[]): UserRecord[] {
@@ -98,6 +101,8 @@ function getRoleBadgeClasses(role: string): string {
       return "bg-blue-100 text-blue-700 border-blue-200";
     case "viewer":
       return "bg-slate-100 text-slate-600 border-slate-200";
+    case "pending":
+      return "bg-amber-100 text-amber-700 border-amber-200";
     default:
       return "bg-slate-100 text-slate-600 border-slate-200";
   }
@@ -111,6 +116,8 @@ function getRoleDisplayName(role: string): string {
       return "Admin";
     case "viewer":
       return "User";
+    case "pending":
+      return "pending";
     default:
       return role;
   }
@@ -354,6 +361,40 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
               Make Admin
             </button>
           )}
+          {user.role === "pending" && (
+            <>
+              <button
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Approve ${user.email} as a standard user?`,
+                    )
+                  ) {
+                    handleChangeRole(user.email, "viewer");
+                  }
+                }}
+                className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200"
+              >
+                <UserCheck className="w-3 h-3" />
+                Approve as User
+              </button>
+              <button
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Approve ${user.email} as an admin?`,
+                    )
+                  ) {
+                    handleChangeRole(user.email, "admin");
+                  }
+                }}
+                className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer text-[#003B70] bg-blue-50 hover:bg-blue-100 border-blue-200"
+              >
+                <UserPlus className="w-3 h-3" />
+                Make Admin
+              </button>
+            </>
+          )}
           <button
             onClick={() => handleBanUser(user.email)}
             className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer text-red-700 bg-red-50 hover:bg-red-100 border-red-200"
@@ -366,11 +407,28 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
       );
     }
 
-    // Current user is admin: can only ban/promote viewers
+    // Current user is admin: can act on viewers and pending users
     if (currentRole === "admin") {
-      if (user.role === "viewer") {
+      if (user.role === "viewer" || user.role === "pending") {
         return (
           <div className="flex items-center justify-end gap-2 flex-nowrap whitespace-nowrap">
+            {user.role === "pending" && (
+              <button
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Approve ${user.email} as a standard user?`,
+                    )
+                  ) {
+                    handleChangeRole(user.email, "viewer");
+                  }
+                }}
+                className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200"
+              >
+                <UserCheck className="w-3 h-3" />
+                Approve as User
+              </button>
+            )}
             <button
               onClick={() => {
                 if (
@@ -383,7 +441,11 @@ export function AdminPanel({ currentRole }: AdminPanelProps) {
               }}
               className="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors border cursor-pointer text-[#003B70] bg-blue-50 hover:bg-blue-100 border-blue-200"
             >
-              Make Admin
+              {user.role === "pending" ? (
+                <><UserPlus className="w-3 h-3" /> Make Admin</>
+              ) : (
+                <>Make Admin</>
+              )}
             </button>
             <button
               onClick={() => handleBanUser(user.email)}

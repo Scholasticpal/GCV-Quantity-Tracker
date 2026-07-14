@@ -236,3 +236,41 @@ CREATE POLICY "user_roles_delete_policy"
     USING (
         public.get_my_role() = 'superadmin'
     );
+
+
+-- ============================================================
+-- SECTION 8: Activity Logs Table & RLS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.activity_logs (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_email text NOT NULL,
+  action_category text NOT NULL,
+  action_detail text NOT NULL,
+  metadata jsonb DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT activity_logs_pkey PRIMARY KEY (id)
+);
+
+ALTER TABLE public.activity_logs ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies to ensure a clean, idempotent re-run.
+DROP POLICY IF EXISTS "activity_logs_select_policy" ON public.activity_logs;
+DROP POLICY IF EXISTS "activity_logs_insert_policy" ON public.activity_logs;
+
+-- SELECT: superadmin and admin can view logs
+CREATE POLICY "activity_logs_select_policy"
+    ON public.activity_logs
+    FOR SELECT
+    USING (
+        public.get_my_role() IN ('superadmin', 'admin')
+    );
+
+-- INSERT: active users can log activities (system relies on RPC, but for direct inserts if needed)
+-- Note: 'pending' users are excluded
+CREATE POLICY "activity_logs_insert_policy"
+    ON public.activity_logs
+    FOR INSERT
+    WITH CHECK (
+        public.get_my_role() IN ('superadmin', 'admin', 'viewer')
+    );
